@@ -1,0 +1,30 @@
+---
+services:
+- id: 5edee818-720e-499e-bf10-55dfae43703b
+  name: mock
+  description: mock
+  bindable: true
+  planUpdateable: false
+  requires: [ ]
+  tags:
+  - mock
+  metadata:
+    displayName: mock
+    documentationUrl: https://github.com/making/mock-service-broker
+    imageUrl: https://placehold.co/48x48.png
+    longDescription: mock mock
+    providerDisplayName: "@making"
+    supportUrl: https://github.com/making/elephantsql-service-broker
+  plans:
+  - id: 0ed05edb-7e48-4ad9-bded-8fe37638e2e3
+    name: free
+    description: This is free
+    free: true
+    metadata:
+      displayName: Free
+      bullets:
+      - mock
+      costs:
+      - amount:
+          usd: 0
+        unit: MONTHLY
