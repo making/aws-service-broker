@@ -6,10 +6,10 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 
 @SpringBootApplication
 @ConfigurationPropertiesScan
-public class MockServiceBrokerApplication {
+public class IamRoleServiceBrokerApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(MockServiceBrokerApplication.class, args);
+		SpringApplication.run(IamRoleServiceBrokerApplication.class, args);
 	}
 
 }

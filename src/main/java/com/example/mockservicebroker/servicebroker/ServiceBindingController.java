@@ -1,11 +1,12 @@
 package com.example.mockservicebroker.servicebroker;
 
 import java.util.Map;
-import java.util.UUID;
 
+import com.example.mockservicebroker.iam.IamService;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.iam.model.Role;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,20 +16,28 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/v2/service_instances/{instanceId}/service_bindings/{bindingId}")
 public class ServiceBindingController {
 
+	private final IamService iamService;
+
 	private static final Logger log = LoggerFactory.getLogger(ServiceBindingController.class);
+
+	public ServiceBindingController(IamService iamService) {
+		this.iamService = iamService;
+	}
 
 	// https://github.com/openservicebrokerapi/servicebroker/blob/v2.15/spec.md#binding
 	@PutMapping
 	public ResponseEntity<ServiceBindResponse> bind(@PathVariable("instanceId") String instanceId,
 			@PathVariable("bindingId") String bindingId, @RequestBody ServiceBindRequest request) {
 		log.info("bind instanceId={}, bindingId={}, request={}", instanceId, bindingId, request);
-		Map<String, Object> credentials = Map.of("username", bindingId, "password", UUID.randomUUID().toString(),
-				"database", instanceId);
+		Role role = this.iamService.findRoleByInstanceId(instanceId)
+			.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Instance not found"));
+		Map<String, Object> credentials = Map.of("role_name", role.roleName(), "role_arn", role.arn());
 		return ResponseEntity.status(HttpStatus.CREATED).body(new ServiceBindResponse(credentials));
 	}
 
