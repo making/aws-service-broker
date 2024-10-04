@@ -57,7 +57,7 @@ ROLE_ARN=$(aws iam get-role --role-name iam-role-service-broker --query 'Role.Ar
 ```
 
 ```
-sed -i.bk \
+sed \
   -e "s|CHANGE_ME_ROLE_ARN|${ROLE_ARN}|" \
   -e "s|CHANGE_ME_CITS_DOMAIN|${CITS_DOMAIN}|" \
   -e "s|CHANGE_ME_OIDC_PROVIDER_ARN|${OIDC_PROVIDER_ARN}|" manifest-template.yml > manifest.yml
