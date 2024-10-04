@@ -43,9 +43,9 @@ public class IamService {
 				spaceGuid);
 		logger.info("Creating role={} policy={}", roleName, assumeRolePolicyDocument);
 		CreateRoleRequest createRoleRequest = CreateRoleRequest.builder()
-				.roleName(roleName)
-				.assumeRolePolicyDocument(assumeRolePolicyDocument)
-				.build();
+			.roleName(roleName)
+			.assumeRolePolicyDocument(assumeRolePolicyDocument)
+			.build();
 		CreateRoleResponse createRoleResponse = this.iamClient.createRole(createRoleRequest);
 		Role role = createRoleResponse.role();
 		logger.info("Created roleName={} roleArn={}", role.roleName(), role.arn());
@@ -56,7 +56,7 @@ public class IamService {
 		return this.iamClient.listRoles().roles().stream().filter(role -> {
 			String roleName = role.roleName();
 			return roleName.startsWith(this.iamProps.roleNamePrefix())
-				   && roleName.endsWith("-" + removeHyphen(instanceId));
+					&& roleName.endsWith("-" + removeHyphen(instanceId));
 		}).findAny();
 	}
 
@@ -87,15 +87,16 @@ public class IamService {
 
 	void detachPoliciesFromRole(String roleName) {
 		ListAttachedRolePoliciesRequest listAttachedPoliciesRequest = ListAttachedRolePoliciesRequest.builder()
-				.roleName(roleName)
-				.build();
-		ListAttachedRolePoliciesResponse listAttachedPoliciesResponse = this.iamClient.listAttachedRolePolicies(listAttachedPoliciesRequest);
+			.roleName(roleName)
+			.build();
+		ListAttachedRolePoliciesResponse listAttachedPoliciesResponse = this.iamClient
+			.listAttachedRolePolicies(listAttachedPoliciesRequest);
 		List<AttachedPolicy> attachedPolicies = listAttachedPoliciesResponse.attachedPolicies();
 		for (AttachedPolicy policy : attachedPolicies) {
 			DetachRolePolicyRequest detachRolePolicyRequest = DetachRolePolicyRequest.builder()
-					.roleName(roleName)
-					.policyArn(policy.policyArn())
-					.build();
+				.roleName(roleName)
+				.policyArn(policy.policyArn())
+				.build();
 			logger.info("Detaching policy={} roleName={}", policy.policyName(), roleName);
 			this.iamClient.detachRolePolicy(detachRolePolicyRequest);
 			logger.info("Detached policy={} roleName={}", policy.policyName(), roleName);
@@ -103,18 +104,16 @@ public class IamService {
 	}
 
 	void deleteInlinePoliciesFromRole(String roleName) {
-		ListRolePoliciesRequest listRolePoliciesRequest = ListRolePoliciesRequest.builder()
-				.roleName(roleName)
-				.build();
+		ListRolePoliciesRequest listRolePoliciesRequest = ListRolePoliciesRequest.builder().roleName(roleName).build();
 
 		ListRolePoliciesResponse listRolePoliciesResponse = this.iamClient.listRolePolicies(listRolePoliciesRequest);
 		List<String> inlinePolicies = listRolePoliciesResponse.policyNames();
 
 		for (String policyName : inlinePolicies) {
 			DeleteRolePolicyRequest deleteRolePolicyRequest = DeleteRolePolicyRequest.builder()
-					.roleName(roleName)
-					.policyName(policyName)
-					.build();
+				.roleName(roleName)
+				.policyName(policyName)
+				.build();
 			logger.info("Deleting inline policy={} roleName={}", policyName, roleName);
 			this.iamClient.deleteRolePolicy(deleteRolePolicyRequest);
 			logger.info("Deleted inline policy={} roleName={}", policyName, roleName);

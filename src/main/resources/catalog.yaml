@@ -1,18 +1,19 @@
 ---
 services:
 - id: 5edee818-720e-499e-bf10-55dfae43703b
-  name: mock
-  description: mock
+  name: iam-role
+  description: AWS IAM Role
   bindable: true
   planUpdateable: false
   requires: [ ]
   tags:
-  - mock
+  - AWS
+  - IAM
   metadata:
-    displayName: mock
-    documentationUrl: https://github.com/making/mock-service-broker
+    displayName: iam-role
+    documentationUrl: https://github.com/making/iam-role-service-broker
     imageUrl: https://placehold.co/48x48.png
-    longDescription: mock mock
+    longDescription: Create an IAM Role for your space
     providerDisplayName: "@making"
     supportUrl: https://github.com/making/elephantsql-service-broker
   plans:
@@ -23,7 +24,8 @@ services:
     metadata:
       displayName: Free
       bullets:
-      - mock
+      - Create an IAM Role for your space
+      - At most one role per space
       costs:
       - amount:
           usd: 0
