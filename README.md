@@ -72,9 +72,6 @@ cf create-service-broker iam-role-service-broker admin password <url>
 cf enable-service-access iam-role
 ```
 
-cf create-service-broker iam-role-service-broker admin password https://iam-role-service-broker.apps.dhaka.cf-app.com --space-scoped
-
-
 ## How to create the service instance / service binding
 
 ```
