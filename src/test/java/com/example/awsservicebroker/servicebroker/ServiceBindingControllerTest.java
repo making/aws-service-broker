@@ -1,7 +1,7 @@
-package com.example.mockservicebroker.servicebroker;
+package com.example.awsservicebroker.servicebroker;
 
-import com.example.mockservicebroker.config.TestConfig;
-import com.example.mockservicebroker.iam.IamService;
+import com.example.awsservicebroker.config.TestConfig;
+import com.example.awsservicebroker.iam.IamService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import org.junit.jupiter.api.AfterEach;

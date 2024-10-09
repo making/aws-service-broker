@@ -1,4 +1,4 @@
-package com.example.mockservicebroker.config;
+package com.example.awsservicebroker.config;
 
 import org.testcontainers.containers.localstack.LocalStackContainer;
 import org.testcontainers.utility.DockerImageName;

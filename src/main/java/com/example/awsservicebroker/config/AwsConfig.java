@@ -1,4 +1,4 @@
-package com.example.mockservicebroker.config;
+package com.example.awsservicebroker.config;
 
 import io.awspring.cloud.autoconfigure.core.AwsClientBuilderConfigurer;
 import io.awspring.cloud.autoconfigure.core.AwsConnectionDetails;

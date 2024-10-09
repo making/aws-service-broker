@@ -1,8 +1,8 @@
-package com.example.mockservicebroker.servicebroker;
+package com.example.awsservicebroker.servicebroker;
 
 import java.util.Map;
 
-import com.example.mockservicebroker.iam.IamService;
+import com.example.awsservicebroker.iam.IamService;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

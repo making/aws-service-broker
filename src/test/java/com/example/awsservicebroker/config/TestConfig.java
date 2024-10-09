@@ -1,6 +1,4 @@
-package com.example.mockservicebroker.config;
-
-import java.io.IOException;
+package com.example.awsservicebroker.config;
 
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.web.client.ClientHttpRequestFactories;

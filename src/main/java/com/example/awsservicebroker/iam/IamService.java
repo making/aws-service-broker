@@ -1,9 +1,8 @@
-package com.example.mockservicebroker.iam;
+package com.example.awsservicebroker.iam;
 
 import java.util.List;
 import java.util.Optional;
 
-import com.example.mockservicebroker.IamProps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.iam.IamClient;

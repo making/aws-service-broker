@@ -1,9 +1,9 @@
 applications:
-- name: iam-role-service-broker
+- name: aws-service-broker
   buildpacks:
   - java_buildpack_offline
   memory: 768m
-  path: ./target/iam-role-service-broker-0.0.1-SNAPSHOT.jar
+  path: ./target/aws-service-broker-0.0.1-SNAPSHOT.jar
   env:
     JBP_CONFIG_OPEN_JDK_JRE: '{jre: {version: 17.+}}'
     SPRING_CLOUD_AWS_CREDENTIALS_STS_WEBIDENTITYTOKENFILE: /tmp/token

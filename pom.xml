@@ -9,10 +9,10 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.example</groupId>
-	<artifactId>iam-role-service-broker</artifactId>
+	<artifactId>aws-service-broker</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>iam-role-service-broker</name>
-	<description>iam-role-service-broker</description>
+	<name>aws-service-broker</name>
+	<description>aws-service-broker</description>
 	<url/>
 	<licenses>
 		<license/>

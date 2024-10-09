@@ -1,9 +1,9 @@
-package com.example.mockservicebroker.servicebroker;
+package com.example.awsservicebroker.servicebroker;
 
 import java.util.UUID;
 
-import com.example.mockservicebroker.config.TestConfig;
-import com.example.mockservicebroker.iam.IamService;
+import com.example.awsservicebroker.config.TestConfig;
+import com.example.awsservicebroker.iam.IamService;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;

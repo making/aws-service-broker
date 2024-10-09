@@ -1,9 +1,9 @@
-package com.example.mockservicebroker.servicebroker;
+package com.example.awsservicebroker.servicebroker;
 
 import java.io.IOException;
 import java.io.InputStream;
 
-import com.example.mockservicebroker.ServiceBrokerProps;
+import com.example.awsservicebroker.ServiceBrokerProps;
 import org.yaml.snakeyaml.Yaml;
 
 import org.springframework.web.bind.annotation.GetMapping;

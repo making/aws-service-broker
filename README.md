@@ -1,8 +1,8 @@
-# IAM Role Service Broker
+# AWS Service Broker
 
 ## How to deploy the service broker 
 
-[CF Identity Token Service](https://github.com/making/cf-identity-token-service) is required to deploy IAM Role Service Broker using IAM Role
+[CF Identity Token Service](https://github.com/making/cf-identity-token-service) is required to deploy AWS Service Broker using IAM Role
 
 ### Create IAM Role for the service broker
 
@@ -38,16 +38,16 @@ cat << EOF > cf-${ORG_NAME}-${SPACE_NAME}-trust-policy.json
 }
 EOF
 
-aws iam create-role --role-name iam-role-service-broker --assume-role-policy-document file://cf-${ORG_NAME}-${SPACE_NAME}-trust-policy.json
+aws iam create-role --role-name aws-service-broker --assume-role-policy-document file://cf-${ORG_NAME}-${SPACE_NAME}-trust-policy.json
 ```
 
 ```
 sed "s/CHANGE_ME/$(aws sts get-caller-identity --output text --query Account)/" policy/iam-policy.json > iam-policy.json
-aws iam put-role-policy --role-name iam-role-service-broker --policy-name iam-role-service-broker --policy-document file://iam-policy.json
+aws iam put-role-policy --role-name aws-service-broker --policy-name aws-service-broker --policy-document file://iam-policy.json
 ```
 
 ```
-ROLE_ARN=$(aws iam get-role --role-name iam-role-service-broker --query 'Role.Arn' --output text)
+ROLE_ARN=$(aws iam get-role --role-name aws-service-broker --query 'Role.Arn' --output text)
 ```
 
 ### Deploy the service broker
@@ -68,7 +68,7 @@ cf push
 ## How to register the service broker
 
 ```
-cf create-service-broker iam-role-service-broker admin password <url>
+cf create-service-broker aws-service-broker admin password <url>
 cf enable-service-access iam-role
 ```
 

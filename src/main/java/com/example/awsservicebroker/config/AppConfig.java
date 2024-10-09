@@ -1,4 +1,4 @@
-package com.example.mockservicebroker.config;
+package com.example.awsservicebroker.config;
 
 import org.springframework.boot.actuate.autoconfigure.security.servlet.EndpointRequest;
 import org.springframework.context.annotation.Bean;
