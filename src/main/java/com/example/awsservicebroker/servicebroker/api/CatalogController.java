@@ -1,4 +1,4 @@
-package com.example.awsservicebroker.servicebroker;
+package com.example.awsservicebroker.servicebroker.api;
 
 import java.io.IOException;
 import java.io.InputStream;

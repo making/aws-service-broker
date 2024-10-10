@@ -18,7 +18,7 @@
         "iam:DeleteRolePolicy",
         "iam:DeleteRole"
       ],
-      "Resource": "arn:aws:iam::CHANGE_ME:role/cf-*"
+      "Resource": "arn:aws:iam::CHANGE_ME:role/cf-role/*"
     }
   ]
 }

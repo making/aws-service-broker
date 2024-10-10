@@ -1,8 +1,12 @@
-package com.example.awsservicebroker.iam;
+package com.example.awsservicebroker.aws.iam;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
+import com.example.awsservicebroker.aws.Instance;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.iam.IamClient;
@@ -17,6 +21,7 @@ import software.amazon.awssdk.services.iam.model.ListAttachedRolePoliciesRespons
 import software.amazon.awssdk.services.iam.model.ListRolePoliciesRequest;
 import software.amazon.awssdk.services.iam.model.ListRolePoliciesResponse;
 import software.amazon.awssdk.services.iam.model.Role;
+import software.amazon.awssdk.services.iam.model.Tag;
 
 import org.springframework.stereotype.Component;
 
@@ -29,21 +34,29 @@ public class IamService {
 
 	private final Logger logger = LoggerFactory.getLogger(IamService.class);
 
+	public static final String ROLE_NAME_DELIMITER = "_";
+
 	public IamService(IamClient iamClient, IamProps iamProps) {
 		this.iamClient = iamClient;
 		this.iamProps = iamProps;
 	}
 
-	public Role createIamRole(String instanceId, String orgGuid, String spaceGuid, String orgName, String spaceName) {
+	String roleName(String instanceName, String orgName, String spaceName) {
+		return String.join(ROLE_NAME_DELIMITER, this.iamProps.roleNamePrefix(), orgName, spaceName, instanceName);
+	}
+
+	public Role createIamRole(Instance instance) {
 		String oidcProviderArn = this.iamProps.oidcProviderArn();
 		String oidcProviderDomain = oidcProviderArn.split("/")[1];
-		String roleName = this.iamProps.roleNamePrefix() + orgName + "-" + spaceName + "-" + removeHyphen(instanceId);
-		String assumeRolePolicyDocument = buildAssumeRolePolicyDocument(oidcProviderArn, oidcProviderDomain, orgGuid,
-				spaceGuid);
+		String roleName = this.roleName(instance.instanceName(), instance.orgName(), instance.spaceName());
+		String assumeRolePolicyDocument = buildAssumeRolePolicyDocument(oidcProviderArn, oidcProviderDomain,
+				instance.orgGuid(), instance.spaceGuid());
 		logger.info("Creating role={} policy={}", roleName, assumeRolePolicyDocument);
 		CreateRoleRequest createRoleRequest = CreateRoleRequest.builder()
 			.roleName(roleName)
+			.path(this.iamProps.rolePath())
 			.assumeRolePolicyDocument(assumeRolePolicyDocument)
+			.tags(instance.toTags((key, value) -> Tag.builder().key(key).value(value).build()))
 			.build();
 		CreateRoleResponse createRoleResponse = this.iamClient.createRole(createRoleRequest);
 		Role role = createRoleResponse.role();
@@ -51,19 +64,57 @@ public class IamService {
 		return role;
 	}
 
+	public void attachInlinePolicyToRole(String roleName, String policyName, String policyDocument) {
+		logger.info("Attaching inline to role={} policy={} policy_document={}", roleName, policyName, policyDocument);
+		this.iamClient
+			.putRolePolicy(builder -> builder.roleName(roleName).policyName(policyName).policyDocument(policyDocument));
+		logger.info("Attached inline to role={} policy={}", roleName, policyName);
+	}
+
+	public void detachInlinePolicyFromRole(String roleName, String policyName) {
+		logger.info("Detaching inline policy={} from role={}", policyName, roleName);
+		this.iamClient.deleteRolePolicy(builder -> builder.roleName(roleName).policyName(policyName));
+		logger.info("Detached inline policy={} from role={}", policyName, roleName);
+	}
+
+	public void detachInlinePolicyFromRoleByInstanceId(String instanceId) {
+		this.iamClient.listRolePolicies(builder -> builder.maxItems(1000)).policyNames();
+
+	}
+
 	public Optional<Role> findRoleByInstanceId(String instanceId) {
-		return this.iamClient.listRoles().roles().stream().filter(role -> {
-			String roleName = role.roleName();
-			return roleName.startsWith(this.iamProps.roleNamePrefix())
-					&& roleName.endsWith("-" + removeHyphen(instanceId));
-		}).findAny();
+		return this.iamClient.listRoles(builder -> builder.pathPrefix(this.iamProps.rolePath()).maxItems(1000))
+			.roles()
+			.stream()
+			.filter(role -> this.iamClient.listRoleTags(builder -> builder.roleName(role.roleName()).maxItems(1000))
+				.tags()
+				.stream()
+				.anyMatch(tag -> tag.key().equals("instance_id") && tag.value().equals(instanceId)))
+			.findAny();
+	}
+
+	public Optional<Role> findRoleByRoleName(String roleName) {
+		return this.iamClient.listRoles()
+			.roles()
+			.stream()
+			.filter(role -> Objects.equals(roleName, role.roleName()))
+			.findAny();
 	}
 
 	public Optional<Role> findRoleByOrgNameAndSpaceName(String orgName, String spaceName) {
-		return this.iamClient.listRoles().roles().stream().filter(role -> {
-			String roleName = role.roleName();
-			return roleName.startsWith(this.iamProps.roleNamePrefix() + orgName + "-" + spaceName);
-		}).findAny();
+		return this.iamClient.listRoles(builder -> builder.pathPrefix(this.iamProps.rolePath()))
+			.roles()
+			.stream()
+			.filter(role -> {
+				Map<String, String> tagMap = this.iamClient
+					.listRoleTags(builder -> builder.roleName(role.roleName()).maxItems(1000))
+					.tags()
+					.stream()
+					.collect(Collectors.toMap(Tag::key, Tag::value));
+				return Objects.equals(tagMap.get("org_name"), orgName)
+						&& Objects.equals(tagMap.get("space_name"), spaceName);
+			})
+			.findAny();
 	}
 
 	public void deleteIamRoleByInstanceId(String instanceId) {
@@ -140,10 +191,6 @@ public class IamService {
 				    }
 				  ]
 				}""".formatted(oidcProviderArn, oidcProviderDomain, orgGuid, spaceGuid, oidcProviderDomain);
-	}
-
-	static String removeHyphen(String s) {
-		return s.replaceAll("-", "");
 	}
 
 }

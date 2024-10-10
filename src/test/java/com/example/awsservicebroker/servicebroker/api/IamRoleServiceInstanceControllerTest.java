@@ -1,19 +1,21 @@
-package com.example.awsservicebroker.servicebroker;
+package com.example.awsservicebroker.servicebroker.api;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
+import com.example.awsservicebroker.aws.Instance;
 import com.example.awsservicebroker.config.TestConfig;
-import com.example.awsservicebroker.iam.IamService;
+import com.example.awsservicebroker.aws.iam.IamService;
+import com.example.awsservicebroker.servicebroker.AwsService;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
+import software.amazon.awssdk.services.iam.model.Role;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.system.CapturedOutput;
-import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
@@ -27,10 +29,9 @@ import static org.springframework.boot.test.context.SpringBootTest.WebEnvironmen
 
 @SpringBootTest(webEnvironment = RANDOM_PORT,
 		properties = { "iam.oidc-provider-arn=arn:aws:iam::123456789012:oidc-provider/example.com" })
-@ExtendWith(OutputCaptureExtension.class)
 @ActiveProfiles("testcontainers")
 @Import(TestConfig.class)
-class ServiceInstanceControllerTest {
+class IamRoleServiceInstanceControllerTest {
 
 	RestClient restClient;
 
@@ -39,7 +40,9 @@ class ServiceInstanceControllerTest {
 
 	String instanceId = "a2148c98-7d28-4bb6-853c-7761db9b9d5c";
 
-	String serviceId = "5edee818-720e-499e-bf10-55dfae43703b";
+	String instanceName = "foo";
+
+	String serviceId = AwsService.IAM_ROLE.serviceId();
 
 	String planId = "0ed05edb-7e48-4ad9-bded-8fe37638e2e3";
 
@@ -62,7 +65,8 @@ class ServiceInstanceControllerTest {
 	}
 
 	@Test
-	void provisioning(CapturedOutput capture) {
+	void provisioning() {
+		assertThat(this.iamService.findRoleByInstanceId(instanceId)).isEmpty();
 		ResponseEntity<JsonNode> response = this.restClient.put()
 			.uri("/v2/service_instances/{instanceId}", instanceId)
 			.contentType(MediaType.APPLICATION_JSON)
@@ -75,7 +79,8 @@ class ServiceInstanceControllerTest {
 					    "organization_guid": "%s",
 					    "space_guid": "%s",
 					    "organization_name": "%s",
-					    "space_name": "%s"
+					    "space_name": "%s",
+					    "instance_name": "%s"
 					  },
 					  "organization_guid": "%s",
 					  "space_guid": "%s",
@@ -84,18 +89,26 @@ class ServiceInstanceControllerTest {
 					  }
 					}
 					""".formatted(serviceId, planId, organizationGuid, spaceGuid, organizationName, spaceName,
-					organizationGuid, spaceGuid))
+					instanceName, organizationGuid, spaceGuid))
 			.retrieve()
 			.toEntity(JsonNode.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-		assertThat(capture.toString()).containsPattern(
-				"Created roleName=cf-demo-test-a2148c987d284bb6853c7761db9b9d5c roleArn=arn:aws:iam::\\d+:role/cf-demo-test-a2148c987d284bb6853c7761db9b9d5c");
+		Optional<Role> roleOptional = this.iamService.findRoleByInstanceId(instanceId);
+		assertThat(roleOptional).isNotEmpty();
+		Role role = roleOptional.get();
+		assertThat(role.roleName()).isEqualTo("cf_demo_test_foo");
 	}
 
 	@Test
-	void provisioning_conflict(CapturedOutput capture) {
-		this.iamService.createIamRole(UUID.randomUUID().toString(), organizationGuid, spaceGuid, organizationName,
-				spaceName);
+	void provisioning_conflict() {
+		this.iamService.createIamRole(Instance.builder()
+			.instanceId(UUID.randomUUID().toString())
+			.instanceName(instanceName)
+			.orgGuid(organizationGuid)
+			.orgName(organizationName)
+			.spaceGuid(spaceGuid)
+			.spaceName(spaceName)
+			.build());
 		ResponseEntity<JsonNode> response = this.restClient.put()
 			.uri("/v2/service_instances/{instanceId}", instanceId)
 			.contentType(MediaType.APPLICATION_JSON)
@@ -108,7 +121,8 @@ class ServiceInstanceControllerTest {
 					    "organization_guid": "%s",
 					    "space_guid": "%s",
 					    "organization_name": "%s",
-					    "space_name": "%s"
+					    "space_name": "%s",
+					    "instance_name": "%s"
 					  },
 					  "organization_guid": "%s",
 					  "space_guid": "%s",
@@ -117,15 +131,14 @@ class ServiceInstanceControllerTest {
 					  }
 					}
 					""".formatted(serviceId, planId, organizationGuid, spaceGuid, organizationName, spaceName,
-					organizationGuid, spaceGuid))
+					instanceName, organizationGuid, spaceGuid))
 			.retrieve()
 			.toEntity(JsonNode.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
 		JsonNode body = response.getBody();
 		assertThat(body).isNotNull();
 		assertThat(body.has("message")).isTrue();
-		assertThat(body.get("message").asText()).isEqualTo(
-				"The IAM role for the given org and space already exists. You can only create one IAM role per org and space.");
+		assertThat(body.get("message").asText()).startsWith("Role with name cf_demo_test_foo already exists.");
 	}
 
 	@Test
@@ -165,14 +178,23 @@ class ServiceInstanceControllerTest {
 	}
 
 	@Test
-	void deprovisioning(CapturedOutput capture) {
-		this.iamService.createIamRole(instanceId, organizationGuid, spaceGuid, organizationName, spaceName);
+	void deprovisioning() {
+		this.iamService.createIamRole(Instance.builder()
+			.instanceId(instanceId)
+			.instanceName(instanceName)
+			.orgGuid(organizationGuid)
+			.orgName(organizationName)
+			.spaceGuid(spaceGuid)
+			.spaceName(spaceName)
+			.build());
+		assertThat(this.iamService.findRoleByInstanceId(instanceId)).isNotEmpty();
 		ResponseEntity<JsonNode> response = this.restClient.delete()
-			.uri("/v2/service_instances/{instanceId}", instanceId)
+			.uri("/v2/service_instances/{instanceId}?service_id={serviceId}&plan_id={planId}", instanceId, serviceId,
+					planId)
 			.retrieve()
 			.toEntity(JsonNode.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-		assertThat(capture.toString()).contains("Deleted roleName=cf-demo-test-a2148c987d284bb6853c7761db9b9d5c");
+		assertThat(this.iamService.findRoleByInstanceId(instanceId)).isEmpty();
 	}
 
 }

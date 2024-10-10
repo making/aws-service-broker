@@ -11,11 +11,11 @@ services:
   - IAM
   metadata:
     displayName: iam-role
-    documentationUrl: https://github.com/making/iam-role-service-broker
+    documentationUrl: https://github.com/making/aws-service-broker
     imageUrl: https://placehold.co/48x48.png
     longDescription: Create an IAM Role for your space
     providerDisplayName: "@making"
-    supportUrl: https://github.com/making/elephantsql-service-broker
+    supportUrl: https://github.com/making/aws-service-broker
   plans:
   - id: 0ed05edb-7e48-4ad9-bded-8fe37638e2e3
     name: free
@@ -26,6 +26,35 @@ services:
       bullets:
       - Create an IAM Role for your space
       - At most one role per space
+      costs:
+      - amount:
+          usd: 0
+        unit: MONTHLY
+- id: 2de9054b-fad9-4b25-84c9-efe432b14c2f
+  name: s3
+  description: S3
+  bindable: true
+  planUpdateable: false
+  requires: [ ]
+  tags:
+  - AWS
+  - S3
+  metadata:
+    displayName: s3
+    documentationUrl: https://github.com/making/aws-service-broker
+    imageUrl: https://placehold.co/48x48.png
+    longDescription: Create a S3 bucket
+    providerDisplayName: "@making"
+    supportUrl: https://github.com/making/aws-service-broker
+  plans:
+  - id: a42e2c0c-64e0-41c5-a59c-be52c592812e
+    name: free
+    description: This is free
+    free: true
+    metadata:
+      displayName: Free
+      bullets:
+      - Create a S3 bucket
       costs:
       - amount:
           usd: 0

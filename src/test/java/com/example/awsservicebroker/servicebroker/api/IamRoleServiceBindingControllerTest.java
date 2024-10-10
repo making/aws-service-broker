@@ -1,7 +1,9 @@
-package com.example.awsservicebroker.servicebroker;
+package com.example.awsservicebroker.servicebroker.api;
 
+import com.example.awsservicebroker.aws.Instance;
 import com.example.awsservicebroker.config.TestConfig;
-import com.example.awsservicebroker.iam.IamService;
+import com.example.awsservicebroker.aws.iam.IamService;
+import com.example.awsservicebroker.servicebroker.AwsService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import org.junit.jupiter.api.AfterEach;
@@ -28,7 +30,7 @@ import static org.springframework.boot.test.context.SpringBootTest.WebEnvironmen
 @ExtendWith(OutputCaptureExtension.class)
 @ActiveProfiles("testcontainers")
 @Import(TestConfig.class)
-class ServiceBindingControllerTest {
+class IamRoleServiceBindingControllerTest {
 
 	RestClient restClient;
 
@@ -37,7 +39,9 @@ class ServiceBindingControllerTest {
 
 	String instanceId = "a2148c98-7d28-4bb6-853c-7761db9b9d5c";
 
-	String serviceId = "5edee818-720e-499e-bf10-55dfae43703b";
+	String instanceName = "foo";
+
+	String serviceId = AwsService.IAM_ROLE.serviceId();
 
 	String planId = "0ed05edb-7e48-4ad9-bded-8fe37638e2e3";
 
@@ -56,7 +60,14 @@ class ServiceBindingControllerTest {
 	@BeforeEach
 	void setUp(@Autowired RestClient.Builder restClientBuilder, @LocalServerPort int port) {
 		this.restClient = restClientBuilder.baseUrl("http://localhost:" + port).build();
-		this.iamService.createIamRole(instanceId, organizationGuid, spaceGuid, organizationName, spaceName);
+		this.iamService.createIamRole(Instance.builder()
+			.instanceId(instanceId)
+			.instanceName(instanceName)
+			.orgGuid(organizationGuid)
+			.orgName(organizationName)
+			.spaceGuid(spaceGuid)
+			.spaceName(spaceName)
+			.build());
 	}
 
 	@AfterEach
@@ -92,17 +103,17 @@ class ServiceBindingControllerTest {
 		JsonNode body = response.getBody();
 		assertThat(body).isNotNull();
 		assertThat(body.has("credentials")).isTrue();
-		assertThat(body.get("credentials").get("role_name"))
-			.isEqualTo(new TextNode("cf-demo-test-a2148c987d284bb6853c7761db9b9d5c"));
+		assertThat(body.get("credentials").get("role_name")).isEqualTo(new TextNode("cf_demo_test_foo"));
 		assertThat(body.get("credentials").has("role_arn")).isTrue();
 		assertThat(body.get("credentials").get("role_arn").asText())
-			.matches("arn:aws:iam::\\d+:role/cf-demo-test-a2148c987d284bb6853c7761db9b9d5c");
+			.matches("arn:aws:iam::\\d+:role/cf-role/cf_demo_test_foo");
 	}
 
 	@Test
 	void unbind() {
 		ResponseEntity<JsonNode> response = this.restClient.delete()
-			.uri("/v2/service_instances/{instanceId}/service_bindings/{bindingId}", instanceId, bindingId)
+			.uri("/v2/service_instances/{instanceId}/service_bindings/{bindingId}?service_id={serviceId}&plan_id={planId}",
+					instanceId, bindingId, serviceId, planId)
 			.retrieve()
 			.toEntity(JsonNode.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
