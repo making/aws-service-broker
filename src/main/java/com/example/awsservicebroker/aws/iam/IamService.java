@@ -77,11 +77,6 @@ public class IamService {
 		logger.info("Detached inline policy={} from role={}", policyName, roleName);
 	}
 
-	public void detachInlinePolicyFromRoleByInstanceId(String instanceId) {
-		this.iamClient.listRolePolicies(builder -> builder.maxItems(1000)).policyNames();
-
-	}
-
 	public Optional<Role> findRoleByInstanceId(String instanceId) {
 		return this.iamClient.listRoles(builder -> builder.pathPrefix(this.iamProps.rolePath()).maxItems(1000))
 			.roles()
