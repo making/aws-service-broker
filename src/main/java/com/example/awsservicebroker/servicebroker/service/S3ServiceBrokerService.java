@@ -57,6 +57,15 @@ public class S3ServiceBrokerService implements ServiceBrokerService {
 				true);
 	}
 
+	void detachPolicyAndRemoveBucketTags(String bucketName, String roleName, String policyName,
+			@Nullable String bindingId) {
+		String keySuffix = keySuffix(bindingId);
+		this.iamService.detachInlinePolicyFromRole(roleName, policyName);
+		this.s3Service.removeBucketTags(bucketName,
+				List.of(Tag.builder().key(ROLE_NAME_KEY + keySuffix).value(roleName).build(),
+						Tag.builder().key(POLICY_NAME_KEY + keySuffix).value(policyName).build()));
+	}
+
 	/**
 	 * If the <code>role_name</code> parameter is provided, attaches a policy to access
 	 * the specified bucket. Sets tags on the bucket with key: <code>role_name</code> and
@@ -162,7 +171,7 @@ public class S3ServiceBrokerService implements ServiceBrokerService {
 			if (tagMap.containsKey(roleKey)) {
 				String roleName = tagMap.get(roleKey);
 				String policyName = tagMap.get(policyKey);
-				this.iamService.detachInlinePolicyFromRole(roleName, policyName);
+				this.detachPolicyAndRemoveBucketTags(bucketName, roleName, policyName, bindingId);
 			}
 		});
 	}

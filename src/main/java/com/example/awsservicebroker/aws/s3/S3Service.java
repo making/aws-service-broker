@@ -74,6 +74,14 @@ public class S3Service {
 				builder -> builder.bucket(bucketName).tagging(Tagging.builder().tagSet(tagsToPut).build()));
 	}
 
+	public void removeBucketTags(String bucketName, List<Tag> tags) {
+		List<Tag> tagsToPut = new ArrayList<>(this.listBucketTags(bucketName));
+		tagsToPut.removeAll(tags);
+		logger.info("Putting tags to bucket bucketName={} tags={}", bucketName, tagsToPut);
+		this.s3Client.putBucketTagging(
+				builder -> builder.bucket(bucketName).tagging(Tagging.builder().tagSet(tagsToPut).build()));
+	}
+
 	public void putObject(String bucketName, String objectKey, String content) {
 		this.s3Client.putObject(builder -> builder.bucket(bucketName).key(objectKey),
 				RequestBody.fromBytes(content.getBytes(StandardCharsets.UTF_8)));
