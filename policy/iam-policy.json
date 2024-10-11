@@ -6,32 +6,36 @@
       "Action": [
         "iam:ListRoles",
         "iam:ListAttachedRolePolicies",
-        "iam:ListRolePolicies"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
+        "iam:ListRolePolicies",
         "iam:CreateRole",
+        "iam:PutRolePolicy",
         "iam:DetachRolePolicy",
         "iam:DeleteRolePolicy",
-        "iam:DeleteRole"
+        "iam:DeleteRole",
+        "iam:TagRole",
+        "iam:ListRoleTags"
       ],
       "Resource": "arn:aws:iam::CHANGE_ME:role/cf-role/*"
     },
     {
       "Effect": "Allow",
       "Action": [
-        "s3:ListAllMyBuckets",
+        "s3:ListAllMyBuckets"
+      ],
+      "Resource": "arn:aws:s3:::*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
         "s3:ListBucket",
+        "s3:CreateBucket",
         "s3:GetBucketLocation",
         "s3:DeleteBucket",
         "s3:PutBucketTagging",
         "s3:GetBucketTagging",
         "s3:ListBucketVersions"
       ],
-      "Resource": "arn:aws:s3::CHANGE_ME:cf-*"
+      "Resource": "arn:aws:s3:::cf-*"
     },
     {
       "Effect": "Allow",
@@ -39,7 +43,7 @@
         "s3:DeleteObject",
         "s3:DeleteObjectVersion"
       ],
-      "Resource": "arn:aws:s3::CHANGE_ME:cf-*/*"
+      "Resource": "arn:aws:s3:::cf-*/*"
     }
   ]
 }

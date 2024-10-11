@@ -89,7 +89,7 @@ public class IamService {
 	}
 
 	public Optional<Role> findRoleByRoleName(String roleName) {
-		return this.iamClient.listRoles()
+		return this.iamClient.listRoles(builder -> builder.pathPrefix(this.iamProps.rolePath()).maxItems(1000))
 			.roles()
 			.stream()
 			.filter(role -> Objects.equals(roleName, role.roleName()))
