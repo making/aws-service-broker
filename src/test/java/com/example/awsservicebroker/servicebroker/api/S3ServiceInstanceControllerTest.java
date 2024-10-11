@@ -1,5 +1,6 @@
 package com.example.awsservicebroker.servicebroker.api;
 
+import java.util.List;
 import java.util.UUID;
 
 import com.example.awsservicebroker.aws.Instance;
@@ -7,10 +8,13 @@ import com.example.awsservicebroker.aws.iam.IamService;
 import com.example.awsservicebroker.aws.s3.S3Service;
 import com.example.awsservicebroker.config.TestConfig;
 import com.example.awsservicebroker.servicebroker.AwsService;
+import com.example.awsservicebroker.utils.StringUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.shaded.org.checkerframework.checker.units.qual.A;
+import software.amazon.awssdk.services.iam.IamClient;
 import software.amazon.awssdk.services.iam.model.Role;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +41,9 @@ class S3ServiceInstanceControllerTest {
 
 	@Autowired
 	IamService iamService;
+
+	@Autowired
+	IamClient iamClient;
 
 	@Autowired
 	S3Service s3Service;
@@ -118,6 +125,10 @@ class S3ServiceInstanceControllerTest {
 			.toEntity(JsonNode.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
 		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isNotEmpty();
+		String policyName = "s3-cf-" + StringUtils.removeHyphen(instanceId);
+		List<String> policyNames = this.iamClient.listRolePolicies(builder -> builder.roleName(role.roleName()))
+			.policyNames();
+		assertThat(policyNames).contains(policyName);
 	}
 
 	@Test
@@ -275,6 +286,10 @@ class S3ServiceInstanceControllerTest {
 			.toEntity(JsonNode.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isEmpty();
+		String policyName = "s3-" + bucketName;
+		List<String> policyNames = this.iamClient.listRolePolicies(builder -> builder.roleName(role.roleName()))
+			.policyNames();
+		assertThat(policyNames).doesNotContain(policyName);
 	}
 
 	@Test

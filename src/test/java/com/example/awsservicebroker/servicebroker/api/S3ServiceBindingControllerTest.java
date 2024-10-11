@@ -15,6 +15,9 @@ import com.fasterxml.jackson.databind.node.TextNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.services.iam.IamClient;
+import software.amazon.awssdk.services.iam.model.AttachedPolicy;
+import software.amazon.awssdk.services.iam.model.ListAttachedRolePoliciesRequest;
 import software.amazon.awssdk.services.iam.model.Role;
 import software.amazon.awssdk.services.s3.model.Tag;
 
@@ -42,6 +45,9 @@ class S3ServiceBindingControllerTest {
 
 	@Autowired
 	IamService iamService;
+
+	@Autowired
+	IamClient iamClient;
 
 	@Autowired
 	S3Service s3Service;
@@ -148,7 +154,11 @@ class S3ServiceBindingControllerTest {
 		assertThat(body.get("credentials").get("bucket_name")).isEqualTo(new TextNode(bucketName));
 		List<Tag> tags = this.s3Service.listBucketTags(bucketName);
 		assertThat(tags).contains(Tag.builder().key("role_name").value(role.roleName()).build());
-		assertThat(tags).contains(Tag.builder().key("policy_name").value("s3-" + bucketName).build());
+		String policyName = "s3-" + bucketName;
+		assertThat(tags).contains(Tag.builder().key("policy_name").value(policyName).build());
+		List<String> policyNames = this.iamClient.listRolePolicies(builder -> builder.roleName(role.roleName()))
+			.policyNames();
+		assertThat(policyNames).contains(policyName);
 	}
 
 	@Test
@@ -216,8 +226,11 @@ class S3ServiceBindingControllerTest {
 		List<Tag> tags = this.s3Service.listBucketTags(bucketName);
 		String binding = StringUtils.removeHyphen(bindingId);
 		assertThat(tags).contains(Tag.builder().key("role_name_" + binding).value(role.roleName()).build());
-		assertThat(tags)
-			.contains(Tag.builder().key("policy_name_" + binding).value("s3-" + bucketName + "-" + binding).build());
+		String policyName = "s3-" + bucketName + "-" + binding;
+		assertThat(tags).contains(Tag.builder().key("policy_name_" + binding).value(policyName).build());
+		List<String> policyNames = this.iamClient.listRolePolicies(builder -> builder.roleName(role.roleName()))
+			.policyNames();
+		assertThat(policyNames).contains(policyName);
 	}
 
 	@Test
@@ -310,7 +323,7 @@ class S3ServiceBindingControllerTest {
 					instanceName, role.roleName(), organizationGuid, spaceGuid))
 			.retrieve()
 			.toEntity(JsonNode.class);
-		this.restClient.put()
+		String bucketName = this.restClient.put()
 			.uri("/v2/service_instances/{instanceId}/service_bindings/{bindingId}", instanceId, bindingId)
 			.contentType(MediaType.APPLICATION_JSON)
 			.body("""
@@ -328,7 +341,11 @@ class S3ServiceBindingControllerTest {
 					}
 					""".formatted(serviceId, planId, appGuid))
 			.retrieve()
-			.toEntity(JsonNode.class);
+			.toEntity(JsonNode.class)
+			.getBody()
+			.get("credentials")
+			.get("bucket_name")
+			.asText();
 		ResponseEntity<JsonNode> response = this.restClient.delete()
 			.uri("/v2/service_instances/{instanceId}/service_bindings/{bindingId}?service_id={serviceId}&plan_id={planId}",
 					instanceId, bindingId, serviceId, planId)
@@ -406,8 +423,11 @@ class S3ServiceBindingControllerTest {
 		List<Tag> tags = this.s3Service.listBucketTags(bucketName);
 		String binding = StringUtils.removeHyphen(bindingId);
 		assertThat(tags).doesNotContain(Tag.builder().key("role_name_" + binding).value(role.roleName()).build());
-		assertThat(tags).doesNotContain(
-				Tag.builder().key("policy_name_" + binding).value("s3-" + bucketName + "-" + binding).build());
+		String policyName = "s3-" + bucketName + "-" + binding;
+		assertThat(tags).doesNotContain(Tag.builder().key("policy_name_" + binding).value(policyName).build());
+		List<String> policyNames = this.iamClient.listRolePolicies(builder -> builder.roleName(role.roleName()))
+			.policyNames();
+		assertThat(policyNames).doesNotContain(policyName);
 	}
 
 }
