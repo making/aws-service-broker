@@ -1,6 +1,7 @@
 package com.example.awsservicebroker.servicebroker.api;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 import com.example.awsservicebroker.aws.Instance;
@@ -371,32 +372,42 @@ class S3ServiceBindingControllerTest {
 					instanceName, organizationGuid, spaceGuid))
 			.retrieve()
 			.toEntity(JsonNode.class);
-		this.restClient.put()
-			.uri("/v2/service_instances/{instanceId}/service_bindings/{bindingId}", instanceId, bindingId)
-			.contentType(MediaType.APPLICATION_JSON)
-			.body("""
-					{
-					  "context": {
-					    "platform": "cloudfoundry"
-					  },
-					  "service_id": "%s",
-					  "plan_id": "%s",
-					  "bind_resource": {
-					    "app_guid": "%s"
-					  },
-					  "parameters": {
-					    "role_name": "%s"
-					  }
-					}
-					""".formatted(serviceId, planId, appGuid, role.roleName()))
-			.retrieve()
-			.toEntity(JsonNode.class);
+		String bucketName = Objects
+			.requireNonNull(this.restClient.put()
+				.uri("/v2/service_instances/{instanceId}/service_bindings/{bindingId}", instanceId, bindingId)
+				.contentType(MediaType.APPLICATION_JSON)
+				.body("""
+						{
+						  "context": {
+						    "platform": "cloudfoundry"
+						  },
+						  "service_id": "%s",
+						  "plan_id": "%s",
+						  "bind_resource": {
+						    "app_guid": "%s"
+						  },
+						  "parameters": {
+						    "role_name": "%s"
+						  }
+						}
+						""".formatted(serviceId, planId, appGuid, role.roleName()))
+				.retrieve()
+				.toEntity(JsonNode.class)
+				.getBody())
+			.get("credentials")
+			.get("bucket_name")
+			.asText();
 		ResponseEntity<JsonNode> response = this.restClient.delete()
 			.uri("/v2/service_instances/{instanceId}/service_bindings/{bindingId}?service_id={serviceId}&plan_id={planId}",
 					instanceId, bindingId, serviceId, planId)
 			.retrieve()
 			.toEntity(JsonNode.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		List<Tag> tags = this.s3Service.listBucketTags(bucketName);
+		String binding = StringUtils.removeHyphen(bindingId);
+		assertThat(tags).doesNotContain(Tag.builder().key("role_name_" + binding).value(role.roleName()).build());
+		assertThat(tags).doesNotContain(
+				Tag.builder().key("policy_name_" + binding).value("s3-" + bucketName + "-" + binding).build());
 	}
 
 }
