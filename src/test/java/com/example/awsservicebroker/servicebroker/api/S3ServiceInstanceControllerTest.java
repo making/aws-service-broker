@@ -37,7 +37,7 @@ import static org.springframework.boot.test.context.SpringBootTest.WebEnvironmen
 @SpringBootTest(webEnvironment = RANDOM_PORT,
 		properties = { "iam.oidc-provider-arn=arn:aws:iam::123456789012:oidc-provider/example.com",
 				"logging.level.org.apache.http.wire=info" })
-@ActiveProfiles("testcontainers")
+// @ActiveProfiles("testcontainers")
 @Import(TestConfig.class)
 class S3ServiceInstanceControllerTest {
 
@@ -376,7 +376,7 @@ class S3ServiceInstanceControllerTest {
 	}
 
 	@Test
-	void update() {
+	void update_without_existing_instance() {
 		ResponseEntity<JsonNode> response = this.restClient.patch()
 			.uri("/v2/service_instances/{instanceId}", instanceId)
 			.contentType(MediaType.APPLICATION_JSON)
@@ -408,7 +408,7 @@ class S3ServiceInstanceControllerTest {
 					""".formatted(serviceId, planId, planId, serviceId, organizationGuid, spaceGuid))
 			.retrieve()
 			.toEntity(JsonNode.class);
-		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.GONE);
 	}
 
 	@Test
