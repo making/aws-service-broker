@@ -142,6 +142,13 @@ public class S3Service {
 		logger.info("Enabled versioning bucketName={}", bucketName);
 	}
 
+	public void suspendVersioning(String bucketName) {
+		logger.info("Suspending versioning bucketName={}", bucketName);
+		this.s3Client.putBucketVersioning(builder -> builder.bucket(bucketName)
+			.versioningConfiguration(config -> config.status(BucketVersioningStatus.SUSPENDED)));
+		logger.info("Suspended versioning bucketName={}", bucketName);
+	}
+
 	public String buildTrustPolicyForBucket(String bucketName) {
 		return """
 				{

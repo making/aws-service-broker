@@ -8,6 +8,7 @@ import com.example.awsservicebroker.aws.iam.IamService;
 import com.example.awsservicebroker.aws.s3.S3Service;
 import com.example.awsservicebroker.servicebroker.ServiceBindRequest;
 import com.example.awsservicebroker.servicebroker.ServiceProvisioningRequest;
+import com.example.awsservicebroker.servicebroker.ServiceUpdateRequest;
 import com.example.awsservicebroker.utils.StringUtils;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -100,6 +101,22 @@ public class S3ServiceBrokerService implements ServiceBrokerService {
 			}
 			if (params.enableVersioning()) {
 				this.s3Service.enableVersioning(bucketName);
+			}
+		}
+		return Map.of();
+	}
+
+	@Override
+	public Map<String, Object> update(String instanceId, ServiceUpdateRequest request) {
+		UpdatingParameters params = request.bindParametersTo(UpdatingParameters.class, this.objectMapper);
+		if (params != null) {
+			Bucket bucket = this.s3Service.findBucketByInstanceId(instanceId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.GONE, "The instance has gone."));
+			if (params.enableVersioning()) {
+				this.s3Service.enableVersioning(bucket.name());
+			}
+			else {
+				this.s3Service.suspendVersioning(bucket.name());
 			}
 		}
 		return Map.of();
@@ -201,6 +218,9 @@ public class S3ServiceBrokerService implements ServiceBrokerService {
 			@Nullable @JsonProperty("bucket_name") String bucketName,
 			@Nullable @JsonProperty("enable_versioning") boolean enableVersioning,
 			@Nullable @JsonProperty("region") String region) {
+	}
+
+	public record UpdatingParameters(@Nullable @JsonProperty("enable_versioning") boolean enableVersioning) {
 	}
 
 	public record BindingParameters(@Nullable @JsonProperty("role_name") String roleName) {

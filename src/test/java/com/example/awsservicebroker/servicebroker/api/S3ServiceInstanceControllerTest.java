@@ -516,6 +516,7 @@ class S3ServiceInstanceControllerTest {
 		for (int i = 0; i < 3; i++) {
 			this.s3Service.putObject(bucketName, "test" + i, "This is test" + i);
 		}
+		assertThat(this.s3Client.listObjectVersions(builder -> builder.bucket(bucketName)).versions()).hasSize(6);
 		ResponseEntity<JsonNode> response = this.restClient.delete()
 			.uri("/v2/service_instances/{instanceId}?service_id={serviceId}&plan_id={planId}", instanceId, serviceId,
 					planId)
@@ -622,6 +623,189 @@ class S3ServiceInstanceControllerTest {
 			.retrieve()
 			.toEntity(JsonNode.class);
 		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isNotEmpty();
+		ResponseEntity<JsonNode> response = this.restClient.delete()
+			.uri("/v2/service_instances/{instanceId}?service_id={serviceId}&plan_id={planId}", instanceId, serviceId,
+					planId)
+			.retrieve()
+			.toEntity(JsonNode.class);
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isEmpty();
+	}
+
+	@Test
+	void update_with_enable_versioning_then_deprovisioning() {
+		Role role = this.iamService.createIamRole(Instance.builder()
+			.instanceId(UUID.randomUUID().toString())
+			.instanceName(instanceName)
+			.orgGuid(organizationGuid)
+			.orgName(organizationName)
+			.spaceGuid(spaceGuid)
+			.spaceName(spaceName)
+			.build());
+		boolean enableVersioning = true;
+		this.restClient.put()
+			.uri("/v2/service_instances/{instanceId}", instanceId)
+			.contentType(MediaType.APPLICATION_JSON)
+			.body("""
+					{
+					  "service_id": "%s",
+					  "plan_id": "%s",
+					  "context": {
+					    "platform": "cloudfoundry",
+					    "organization_guid": "%s",
+					    "space_guid": "%s",
+					    "organization_name": "%s",
+					    "space_name": "%s",
+					    "instance_name": "%s"
+					  },
+					  "parameters": {
+					    "role_name": "%s"
+					  },
+					  "organization_guid": "%s",
+					  "space_guid": "%s",
+					  "maintenance_info": {
+					    "version": "2.1.1+abcdef"
+					  }
+					}
+					""".formatted(serviceId, planId, organizationGuid, spaceGuid, organizationName, spaceName,
+					instanceName, role.roleName(), organizationGuid, spaceGuid))
+			.retrieve()
+			.toEntity(JsonNode.class);
+		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isNotEmpty();
+		String bucketName = this.s3Service.defaultBucketName(instanceId);
+		for (int i = 0; i < 3; i++) {
+			this.s3Service.putObject(bucketName, "test" + i, "This is test" + i);
+		}
+		ResponseEntity<JsonNode> patched = this.restClient.patch()
+			.uri("/v2/service_instances/{instanceId}", instanceId)
+			.contentType(MediaType.APPLICATION_JSON)
+			.body("""
+					{
+					  "service_id": "%s",
+					  "plan_id": "%s",
+					  "context": {
+					    "platform": "cloudfoundry",
+					    "organization_guid": "%s",
+					    "space_guid": "%s",
+					    "organization_name": "%s",
+					    "space_name": "%s",
+					    "instance_name": "%s"
+					  },
+					  "parameters": {
+					    "enable_versioning": "%s"
+					  },
+					  "organization_guid": "%s",
+					  "space_guid": "%s",
+					  "maintenance_info": {
+					    "version": "2.1.1+abcdef"
+					  }
+					}
+					""".formatted(serviceId, planId, organizationGuid, spaceGuid, organizationName, spaceName,
+					instanceName, enableVersioning, organizationGuid, spaceGuid))
+			.retrieve()
+			.toEntity(JsonNode.class);
+		assertThat(patched.getStatusCode()).isEqualTo(HttpStatus.OK);
+		// put new versions
+		for (int i = 0; i < 3; i++) {
+			this.s3Service.putObject(bucketName, "test" + i, "This is test" + i);
+		}
+		// put new versions
+		for (int i = 0; i < 3; i++) {
+			this.s3Service.putObject(bucketName, "test" + i, "This is test" + i);
+		}
+		assertThat(this.s3Client.listObjectVersions(builder -> builder.bucket(bucketName)).versions()).hasSize(9);
+		ResponseEntity<JsonNode> response = this.restClient.delete()
+			.uri("/v2/service_instances/{instanceId}?service_id={serviceId}&plan_id={planId}", instanceId, serviceId,
+					planId)
+			.retrieve()
+			.toEntity(JsonNode.class);
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isEmpty();
+	}
+
+	@Test
+	void update_with_suspend_versioning_then_deprovisioning() {
+		Role role = this.iamService.createIamRole(Instance.builder()
+			.instanceId(UUID.randomUUID().toString())
+			.instanceName(instanceName)
+			.orgGuid(organizationGuid)
+			.orgName(organizationName)
+			.spaceGuid(spaceGuid)
+			.spaceName(spaceName)
+			.build());
+		boolean enableVersioning = true;
+		this.restClient.put()
+			.uri("/v2/service_instances/{instanceId}", instanceId)
+			.contentType(MediaType.APPLICATION_JSON)
+			.body("""
+					{
+					  "service_id": "%s",
+					  "plan_id": "%s",
+					  "context": {
+					    "platform": "cloudfoundry",
+					    "organization_guid": "%s",
+					    "space_guid": "%s",
+					    "organization_name": "%s",
+					    "space_name": "%s",
+					    "instance_name": "%s"
+					  },
+					  "parameters": {
+					    "role_name": "%s",
+					    "enable_versioning": "%s"
+					  },
+					  "organization_guid": "%s",
+					  "space_guid": "%s",
+					  "maintenance_info": {
+					    "version": "2.1.1+abcdef"
+					  }
+					}
+					""".formatted(serviceId, planId, organizationGuid, spaceGuid, organizationName, spaceName,
+					instanceName, role.roleName(), enableVersioning, organizationGuid, spaceGuid))
+			.retrieve()
+			.toEntity(JsonNode.class);
+		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isNotEmpty();
+		String bucketName = this.s3Service.defaultBucketName(instanceId);
+		for (int i = 0; i < 3; i++) {
+			this.s3Service.putObject(bucketName, "test" + i, "This is test" + i);
+		}
+		ResponseEntity<JsonNode> patched = this.restClient.patch()
+			.uri("/v2/service_instances/{instanceId}", instanceId)
+			.contentType(MediaType.APPLICATION_JSON)
+			.body("""
+					{
+					  "service_id": "%s",
+					  "plan_id": "%s",
+					  "context": {
+					    "platform": "cloudfoundry",
+					    "organization_guid": "%s",
+					    "space_guid": "%s",
+					    "organization_name": "%s",
+					    "space_name": "%s",
+					    "instance_name": "%s"
+					  },
+					  "parameters": {
+					    "enable_versioning": "%s"
+					  },
+					  "organization_guid": "%s",
+					  "space_guid": "%s",
+					  "maintenance_info": {
+					    "version": "2.1.1+abcdef"
+					  }
+					}
+					""".formatted(serviceId, planId, organizationGuid, spaceGuid, organizationName, spaceName,
+					instanceName, !enableVersioning, organizationGuid, spaceGuid))
+			.retrieve()
+			.toEntity(JsonNode.class);
+		assertThat(patched.getStatusCode()).isEqualTo(HttpStatus.OK);
+		// put new versions
+		for (int i = 0; i < 3; i++) {
+			this.s3Service.putObject(bucketName, "test" + i, "This is test" + i);
+		}
+		// put new versions
+		for (int i = 0; i < 3; i++) {
+			this.s3Service.putObject(bucketName, "test" + i, "This is test" + i);
+		}
+		assertThat(this.s3Client.listObjectVersions(builder -> builder.bucket(bucketName)).versions()).hasSize(6);
 		ResponseEntity<JsonNode> response = this.restClient.delete()
 			.uri("/v2/service_instances/{instanceId}?service_id={serviceId}&plan_id={planId}", instanceId, serviceId,
 					planId)
