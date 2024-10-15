@@ -49,11 +49,12 @@ public class S3Service {
 		return this.s3Props.bucketNamePrefix() + StringUtils.removeHyphen(instanceId);
 	}
 
-	public String createBucket(Instance instance, @Nullable String bucketName) {
+	public String createBucket(Instance instance, @Nullable String bucketName, @Nullable String region) {
 		String bucketNameToCreate = bucketName == null ? this.defaultBucketName(instance.instanceId()) : bucketName;
-		logger.info("Creating bucket bucketName={} region={}", bucketNameToCreate, this.region.id());
+		String regionToCreate = region == null ? this.region.id() : region;
+		logger.info("Creating bucket bucketName={} region={}", bucketNameToCreate, regionToCreate);
 		CreateBucketResponse response = this.s3Client.createBucket(builder -> builder
-			.createBucketConfiguration(CreateBucketConfiguration.builder().locationConstraint(this.region.id()).build())
+			.createBucketConfiguration(CreateBucketConfiguration.builder().locationConstraint(regionToCreate).build())
 			.bucket(bucketNameToCreate));
 		logger.info("Created bucket bucketName={} location={}", bucketNameToCreate, response.location());
 		this.putBucketTags(bucketNameToCreate,

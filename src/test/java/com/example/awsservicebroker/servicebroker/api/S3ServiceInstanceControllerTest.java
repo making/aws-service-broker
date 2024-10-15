@@ -14,9 +14,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.regions.providers.AwsRegionProvider;
 import software.amazon.awssdk.services.iam.IamClient;
 import software.amazon.awssdk.services.iam.model.Role;
+import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.Bucket;
+import software.amazon.awssdk.services.s3.model.BucketLocationConstraint;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -48,6 +51,12 @@ class S3ServiceInstanceControllerTest {
 
 	@Autowired
 	S3Service s3Service;
+
+	@Autowired
+	S3Client s3Client;
+
+	@Autowired
+	AwsRegionProvider regionProvider;
 
 	String bindingId = "8f0b2a93-ca8b-4850-a12a-39a82a17148b";
 
@@ -133,6 +142,9 @@ class S3ServiceInstanceControllerTest {
 		List<String> policyNames = this.iamClient.listRolePolicies(builder -> builder.roleName(role.roleName()))
 			.policyNames();
 		assertThat(policyNames).contains(policyName);
+		BucketLocationConstraint location = this.s3Client.getBucketLocation(builder -> builder.bucket(bucket.name()))
+			.locationConstraint();
+		assertThat(location).isEqualTo(BucketLocationConstraint.fromValue(this.regionProvider.getRegion().id()));
 	}
 
 	@Test
@@ -237,6 +249,61 @@ class S3ServiceInstanceControllerTest {
 		List<String> policyNames = this.iamClient.listRolePolicies(builder -> builder.roleName(role.roleName()))
 			.policyNames();
 		assertThat(policyNames).contains(policyName);
+	}
+
+	@Test
+	void provisioning_with_role_name_and_region() {
+		Role role = this.iamService.createIamRole(Instance.builder()
+			.instanceId(UUID.randomUUID().toString())
+			.instanceName(instanceName)
+			.orgGuid(organizationGuid)
+			.orgName(organizationName)
+			.spaceGuid(spaceGuid)
+			.spaceName(spaceName)
+			.build());
+		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isEmpty();
+		BucketLocationConstraint region = BucketLocationConstraint.US_WEST_2;
+		ResponseEntity<JsonNode> response = this.restClient.put()
+			.uri("/v2/service_instances/{instanceId}", instanceId)
+			.contentType(MediaType.APPLICATION_JSON)
+			.body("""
+					{
+					  "service_id": "%s",
+					  "plan_id": "%s",
+					  "context": {
+					    "platform": "cloudfoundry",
+					    "organization_guid": "%s",
+					    "space_guid": "%s",
+					    "organization_name": "%s",
+					    "space_name": "%s",
+					    "instance_name": "%s"
+					  },
+					  "parameters": {
+					    "role_name": "%s",
+					    "region": "%s"
+					  },
+					  "organization_guid": "%s",
+					  "space_guid": "%s",
+					  "maintenance_info": {
+					    "version": "2.1.1+abcdef"
+					  }
+					}
+					""".formatted(serviceId, planId, organizationGuid, spaceGuid, organizationName, spaceName,
+					instanceName, role.roleName(), region, organizationGuid, spaceGuid))
+			.retrieve()
+			.toEntity(JsonNode.class);
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+		Optional<Bucket> bucketOptional = this.s3Service.findBucketByInstanceId(instanceId);
+		assertThat(bucketOptional).isNotEmpty();
+		Bucket bucket = bucketOptional.get();
+		assertThat(bucket.name()).isEqualTo(this.s3Service.defaultBucketName(instanceId));
+		String policyName = "s3-" + bucket.name();
+		List<String> policyNames = this.iamClient.listRolePolicies(builder -> builder.roleName(role.roleName()))
+			.policyNames();
+		assertThat(policyNames).contains(policyName);
+		BucketLocationConstraint location = this.s3Client.getBucketLocation(builder -> builder.bucket(bucket.name()))
+			.locationConstraint();
+		assertThat(location).isEqualTo(region);
 	}
 
 	@Test

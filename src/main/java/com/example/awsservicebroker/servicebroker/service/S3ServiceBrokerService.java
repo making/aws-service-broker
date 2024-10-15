@@ -87,7 +87,9 @@ public class S3ServiceBrokerService implements ServiceBrokerService {
 	public Map<String, Object> provisioning(String instanceId, ServiceProvisioningRequest request) {
 		ProvisioningParameters params = request.bindParametersTo(ProvisioningParameters.class, this.objectMapper);
 		String bucketNameToCreate = params == null ? null : params.bucketName();
-		String bucketName = this.s3Service.createBucket(this.buildInstance(instanceId, request), bucketNameToCreate);
+		String regionNameToCreate = params == null ? null : params.region();
+		String bucketName = this.s3Service.createBucket(this.buildInstance(instanceId, request), bucketNameToCreate,
+				regionNameToCreate);
 		if (params != null) {
 			if (params.roleName() != null) {
 				this.attachPolicyAndPutBucketTags(bucketName, params.roleName(), null);
@@ -193,7 +195,8 @@ public class S3ServiceBrokerService implements ServiceBrokerService {
 
 	public record ProvisioningParameters(@Nullable @JsonProperty("role_name") String roleName,
 			@Nullable @JsonProperty("bucket_name") String bucketName,
-			@Nullable @JsonProperty("enable_versioning") boolean enableVersioning) {
+			@Nullable @JsonProperty("enable_versioning") boolean enableVersioning,
+			@Nullable @JsonProperty("region") String region) {
 	}
 
 	public record BindingParameters(@Nullable @JsonProperty("role_name") String roleName) {
