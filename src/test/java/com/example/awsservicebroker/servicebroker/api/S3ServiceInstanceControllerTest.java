@@ -1,6 +1,7 @@
 package com.example.awsservicebroker.servicebroker.api;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import com.example.awsservicebroker.aws.Instance;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.iam.IamClient;
 import software.amazon.awssdk.services.iam.model.Role;
+import software.amazon.awssdk.services.s3.model.Bucket;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -123,8 +125,63 @@ class S3ServiceInstanceControllerTest {
 			.retrieve()
 			.toEntity(JsonNode.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isNotEmpty();
-		String policyName = "s3-cf-" + StringUtils.removeHyphen(instanceId);
+		Optional<Bucket> bucketOptional = this.s3Service.findBucketByInstanceId(instanceId);
+		assertThat(bucketOptional).isNotEmpty();
+		Bucket bucket = bucketOptional.get();
+		assertThat(bucket.name()).isEqualTo(this.s3Service.defaultBucketName(instanceId));
+		String policyName = "s3-" + bucket.name();
+		List<String> policyNames = this.iamClient.listRolePolicies(builder -> builder.roleName(role.roleName()))
+			.policyNames();
+		assertThat(policyNames).contains(policyName);
+	}
+
+	@Test
+	void provisioning_with_role_name_and_bucket_name() {
+		Role role = this.iamService.createIamRole(Instance.builder()
+			.instanceId(UUID.randomUUID().toString())
+			.instanceName(instanceName)
+			.orgGuid(organizationGuid)
+			.orgName(organizationName)
+			.spaceGuid(spaceGuid)
+			.spaceName(spaceName)
+			.build());
+		String bucketName = "test-" + UUID.randomUUID().toString();
+		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isEmpty();
+		ResponseEntity<JsonNode> response = this.restClient.put()
+			.uri("/v2/service_instances/{instanceId}", instanceId)
+			.contentType(MediaType.APPLICATION_JSON)
+			.body("""
+					{
+					  "service_id": "%s",
+					  "plan_id": "%s",
+					  "context": {
+					    "platform": "cloudfoundry",
+					    "organization_guid": "%s",
+					    "space_guid": "%s",
+					    "organization_name": "%s",
+					    "space_name": "%s",
+					    "instance_name": "%s"
+					  },
+					  "parameters": {
+					    "role_name": "%s",
+					    "bucket_name": "%s"
+					  },
+					  "organization_guid": "%s",
+					  "space_guid": "%s",
+					  "maintenance_info": {
+					    "version": "2.1.1+abcdef"
+					  }
+					}
+					""".formatted(serviceId, planId, organizationGuid, spaceGuid, organizationName, spaceName,
+					instanceName, role.roleName(), bucketName, organizationGuid, spaceGuid))
+			.retrieve()
+			.toEntity(JsonNode.class);
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+		Optional<Bucket> bucketOptional = this.s3Service.findBucketByInstanceId(instanceId);
+		assertThat(bucketOptional).isNotEmpty();
+		Bucket bucket = bucketOptional.get();
+		assertThat(bucket.name()).isEqualTo(bucketName);
+		String policyName = "s3-" + bucket.name();
 		List<String> policyNames = this.iamClient.listRolePolicies(builder -> builder.roleName(role.roleName()))
 			.policyNames();
 		assertThat(policyNames).contains(policyName);

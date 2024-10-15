@@ -25,6 +25,7 @@ import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
 
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -48,16 +49,16 @@ public class S3Service {
 		return this.s3Props.bucketNamePrefix() + StringUtils.removeHyphen(instanceId);
 	}
 
-	public String createBucket(Instance instance) {
-		String bucketName = this.defaultBucketName(instance.instanceId());
-		logger.info("Creating bucket bucketName={} region={}", bucketName, this.region.id());
+	public String createBucket(Instance instance, @Nullable String bucketName) {
+		String bucketNameToCreate = bucketName == null ? this.defaultBucketName(instance.instanceId()) : bucketName;
+		logger.info("Creating bucket bucketName={} region={}", bucketNameToCreate, this.region.id());
 		CreateBucketResponse response = this.s3Client.createBucket(builder -> builder
 			.createBucketConfiguration(CreateBucketConfiguration.builder().locationConstraint(this.region.id()).build())
-			.bucket(bucketName));
-		logger.info("Created bucket bucketName={} location={}", bucketName, response.location());
-		this.putBucketTags(bucketName, instance.toTags((key, value) -> Tag.builder().key(key).value(value).build()),
-				false);
-		return bucketName;
+			.bucket(bucketNameToCreate));
+		logger.info("Created bucket bucketName={} location={}", bucketNameToCreate, response.location());
+		this.putBucketTags(bucketNameToCreate,
+				instance.toTags((key, value) -> Tag.builder().key(key).value(value).build()), false);
+		return bucketNameToCreate;
 	}
 
 	public List<Tag> listBucketTags(String bucketName) {

@@ -33,6 +33,8 @@ public class S3ServiceBrokerService implements ServiceBrokerService {
 
 	public static final String POLICY_NAME_KEY = "policy_name";
 
+	public static final String BUCKET_NAME_KEY = "bucket_name";
+
 	public S3ServiceBrokerService(S3Service s3Service, IamService iamService, AwsRegionProvider regionProvider) {
 		this.s3Service = s3Service;
 		this.iamService = iamService;
@@ -70,15 +72,19 @@ public class S3ServiceBrokerService implements ServiceBrokerService {
 	 * If the <code>role_name</code> parameter is provided, attaches a policy to access
 	 * the specified bucket. Sets tags on the bucket with key: <code>role_name</code> and
 	 * value: the value of the <code>role_name</code> parameter, and key:
-	 * <code>policy_name</code> with value: <code>s3-{bucket_name}</code>.
+	 * <code>policy_name</code> with value: <code>s3-{bucket_name}</code>.<br>
+	 * If the <code>bucket_name</code> parameter is provided, use it as the bucket name to
+	 * create.
 	 * @param instanceId the ID of the service instance to provision
 	 * @param request the service provisioning request
 	 * @return a map of provisioning results (currently an empty map)
 	 */
 	@Override
 	public Map<String, Object> provisioning(String instanceId, ServiceProvisioningRequest request) {
-		String bucketName = this.s3Service.createBucket(this.buildInstance(instanceId, request));
 		Map<String, Object> parameters = request.parameters() == null ? Map.of() : request.parameters();
+		String bucketNameToCreate = parameters.containsKey(BUCKET_NAME_KEY) ? parameters.get(BUCKET_NAME_KEY).toString()
+				: null;
+		String bucketName = this.s3Service.createBucket(this.buildInstance(instanceId, request), bucketNameToCreate);
 		if (parameters.containsKey(ROLE_NAME_KEY)) {
 			String roleName = parameters.get(ROLE_NAME_KEY).toString();
 			this.attachPolicyAndPutBucketTags(bucketName, roleName, null);
