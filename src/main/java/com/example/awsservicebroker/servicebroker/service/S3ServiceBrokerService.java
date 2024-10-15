@@ -9,6 +9,8 @@ import com.example.awsservicebroker.aws.s3.S3Service;
 import com.example.awsservicebroker.servicebroker.ServiceBindRequest;
 import com.example.awsservicebroker.servicebroker.ServiceProvisioningRequest;
 import com.example.awsservicebroker.utils.StringUtils;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.regions.providers.AwsRegionProvider;
 import software.amazon.awssdk.services.iam.model.Role;
@@ -29,16 +31,18 @@ public class S3ServiceBrokerService implements ServiceBrokerService {
 
 	private final Region region;
 
-	public static final String ROLE_NAME_KEY = "role_name";
+	private final ObjectMapper objectMapper;
 
-	public static final String POLICY_NAME_KEY = "policy_name";
+	public static final String ROLE_NAME_TAG_KEY = "role_name";
 
-	public static final String BUCKET_NAME_KEY = "bucket_name";
+	public static final String POLICY_NAME_TAG_KEY = "policy_name";
 
-	public S3ServiceBrokerService(S3Service s3Service, IamService iamService, AwsRegionProvider regionProvider) {
+	public S3ServiceBrokerService(S3Service s3Service, IamService iamService, AwsRegionProvider regionProvider,
+			ObjectMapper objectMapper) {
 		this.s3Service = s3Service;
 		this.iamService = iamService;
 		this.region = regionProvider.getRegion();
+		this.objectMapper = objectMapper;
 	}
 
 	String keySuffix(@Nullable String bindingId) {
@@ -54,8 +58,8 @@ public class S3ServiceBrokerService implements ServiceBrokerService {
 		String keySuffix = keySuffix(bindingId);
 		this.iamService.attachInlinePolicyToRole(role.roleName(), policyName, policyDocument);
 		this.s3Service.putBucketTags(bucketName,
-				List.of(Tag.builder().key(ROLE_NAME_KEY + keySuffix).value(roleName).build(),
-						Tag.builder().key(POLICY_NAME_KEY + keySuffix).value(policyName).build()),
+				List.of(Tag.builder().key(ROLE_NAME_TAG_KEY + keySuffix).value(roleName).build(),
+						Tag.builder().key(POLICY_NAME_TAG_KEY + keySuffix).value(policyName).build()),
 				true);
 	}
 
@@ -64,8 +68,8 @@ public class S3ServiceBrokerService implements ServiceBrokerService {
 		String keySuffix = keySuffix(bindingId);
 		this.iamService.detachInlinePolicyFromRole(roleName, policyName);
 		this.s3Service.removeBucketTags(bucketName,
-				List.of(Tag.builder().key(ROLE_NAME_KEY + keySuffix).value(roleName).build(),
-						Tag.builder().key(POLICY_NAME_KEY + keySuffix).value(policyName).build()));
+				List.of(Tag.builder().key(ROLE_NAME_TAG_KEY + keySuffix).value(roleName).build(),
+						Tag.builder().key(POLICY_NAME_TAG_KEY + keySuffix).value(policyName).build()));
 	}
 
 	/**
@@ -81,13 +85,16 @@ public class S3ServiceBrokerService implements ServiceBrokerService {
 	 */
 	@Override
 	public Map<String, Object> provisioning(String instanceId, ServiceProvisioningRequest request) {
-		Map<String, Object> parameters = request.parameters() == null ? Map.of() : request.parameters();
-		String bucketNameToCreate = parameters.containsKey(BUCKET_NAME_KEY) ? parameters.get(BUCKET_NAME_KEY).toString()
-				: null;
+		ProvisioningParameters params = request.bindParametersTo(ProvisioningParameters.class, this.objectMapper);
+		String bucketNameToCreate = params == null ? null : params.bucketName();
 		String bucketName = this.s3Service.createBucket(this.buildInstance(instanceId, request), bucketNameToCreate);
-		if (parameters.containsKey(ROLE_NAME_KEY)) {
-			String roleName = parameters.get(ROLE_NAME_KEY).toString();
-			this.attachPolicyAndPutBucketTags(bucketName, roleName, null);
+		if (params != null) {
+			if (params.roleName() != null) {
+				this.attachPolicyAndPutBucketTags(bucketName, params.roleName(), null);
+			}
+			if (params.enableVersioning()) {
+				this.s3Service.enableVersioning(bucketName);
+			}
 		}
 		return Map.of();
 	}
@@ -109,13 +116,13 @@ public class S3ServiceBrokerService implements ServiceBrokerService {
 				.stream()
 				.collect(Collectors.toMap(Tag::key, Tag::value));
 			tagMap.forEach((key, value) -> {
-				if (key.equals(ROLE_NAME_KEY)) {
-					String policyName = tagMap.get(POLICY_NAME_KEY);
+				if (key.equals(ROLE_NAME_TAG_KEY)) {
+					String policyName = tagMap.get(POLICY_NAME_TAG_KEY);
 					this.iamService.detachInlinePolicyFromRole(value, policyName);
 				}
-				else if (key.startsWith(ROLE_NAME_KEY)) {
-					String keySuffix = key.substring(ROLE_NAME_KEY.length());
-					String policyName = tagMap.get(POLICY_NAME_KEY + keySuffix);
+				else if (key.startsWith(ROLE_NAME_TAG_KEY)) {
+					String keySuffix = key.substring(ROLE_NAME_TAG_KEY.length());
+					String policyName = tagMap.get(POLICY_NAME_TAG_KEY + keySuffix);
 					this.iamService.detachInlinePolicyFromRole(value, policyName);
 				}
 			});
@@ -142,12 +149,14 @@ public class S3ServiceBrokerService implements ServiceBrokerService {
 		Bucket bucket = this.s3Service.findBucketByInstanceId(instanceId)
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Instance not found"));
 		String bucketName = bucket.name();
-		Map<String, Object> parameters = request.parameters() == null ? Map.of() : request.parameters();
-		if (parameters.containsKey(ROLE_NAME_KEY)) {
-			String roleName = parameters.get(ROLE_NAME_KEY).toString();
+		BindingParameters params = request.bindParametersTo(BindingParameters.class, this.objectMapper);
+		if (params != null && params.roleName() != null) {
+			String roleName = params.roleName();
 			this.attachPolicyAndPutBucketTags(bucketName, roleName, bindingId);
 		}
-		else if (this.s3Service.listBucketTags(bucketName).stream().noneMatch(tag -> tag.key().equals(ROLE_NAME_KEY))) {
+		else if (this.s3Service.listBucketTags(bucketName)
+			.stream()
+			.noneMatch(tag -> tag.key().equals(ROLE_NAME_TAG_KEY))) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
 					"If you do not specify the 'role_name' parameter in the service instance, you must specify the 'role_name' parameter in the service binding.");
 		}
@@ -169,8 +178,8 @@ public class S3ServiceBrokerService implements ServiceBrokerService {
 		this.s3Service.findBucketByInstanceId(instanceId).ifPresent(bucket -> {
 			String bucketName = bucket.name();
 			String keySuffix = keySuffix(bindingId);
-			String roleKey = ROLE_NAME_KEY + keySuffix;
-			String policyKey = POLICY_NAME_KEY + keySuffix;
+			String roleKey = ROLE_NAME_TAG_KEY + keySuffix;
+			String policyKey = POLICY_NAME_TAG_KEY + keySuffix;
 			Map<String, String> tagMap = this.s3Service.listBucketTags(bucketName)
 				.stream()
 				.collect(Collectors.toMap(Tag::key, Tag::value));
@@ -180,6 +189,14 @@ public class S3ServiceBrokerService implements ServiceBrokerService {
 				this.detachPolicyAndRemoveBucketTags(bucketName, roleName, policyName, bindingId);
 			}
 		});
+	}
+
+	public record ProvisioningParameters(@Nullable @JsonProperty("role_name") String roleName,
+			@Nullable @JsonProperty("bucket_name") String bucketName,
+			@Nullable @JsonProperty("enable_versioning") boolean enableVersioning) {
+	}
+
+	public record BindingParameters(@Nullable @JsonProperty("role_name") String roleName) {
 	}
 
 }

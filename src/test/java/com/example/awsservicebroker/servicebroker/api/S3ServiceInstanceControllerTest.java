@@ -188,6 +188,58 @@ class S3ServiceInstanceControllerTest {
 	}
 
 	@Test
+	void provisioning_with_role_name_and_enable_versioning() {
+		Role role = this.iamService.createIamRole(Instance.builder()
+			.instanceId(UUID.randomUUID().toString())
+			.instanceName(instanceName)
+			.orgGuid(organizationGuid)
+			.orgName(organizationName)
+			.spaceGuid(spaceGuid)
+			.spaceName(spaceName)
+			.build());
+		boolean enableVersioning = true;
+		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isEmpty();
+		ResponseEntity<JsonNode> response = this.restClient.put()
+			.uri("/v2/service_instances/{instanceId}", instanceId)
+			.contentType(MediaType.APPLICATION_JSON)
+			.body("""
+					{
+					  "service_id": "%s",
+					  "plan_id": "%s",
+					  "context": {
+					    "platform": "cloudfoundry",
+					    "organization_guid": "%s",
+					    "space_guid": "%s",
+					    "organization_name": "%s",
+					    "space_name": "%s",
+					    "instance_name": "%s"
+					  },
+					  "parameters": {
+					    "role_name": "%s",
+					    "enable_versioning": %s
+					  },
+					  "organization_guid": "%s",
+					  "space_guid": "%s",
+					  "maintenance_info": {
+					    "version": "2.1.1+abcdef"
+					  }
+					}
+					""".formatted(serviceId, planId, organizationGuid, spaceGuid, organizationName, spaceName,
+					instanceName, role.roleName(), enableVersioning, organizationGuid, spaceGuid))
+			.retrieve()
+			.toEntity(JsonNode.class);
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+		Optional<Bucket> bucketOptional = this.s3Service.findBucketByInstanceId(instanceId);
+		assertThat(bucketOptional).isNotEmpty();
+		Bucket bucket = bucketOptional.get();
+		assertThat(bucket.name()).isEqualTo(this.s3Service.defaultBucketName(instanceId));
+		String policyName = "s3-" + bucket.name();
+		List<String> policyNames = this.iamClient.listRolePolicies(builder -> builder.roleName(role.roleName()))
+			.policyNames();
+		assertThat(policyNames).contains(policyName);
+	}
+
+	@Test
 	void provisioning_with_missing_role_name() {
 		ResponseEntity<JsonNode> response = this.restClient.put()
 			.uri("/v2/service_instances/{instanceId}", instanceId)
@@ -332,6 +384,68 @@ class S3ServiceInstanceControllerTest {
 			.toEntity(JsonNode.class);
 		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isNotEmpty();
 		String bucketName = this.s3Service.defaultBucketName(instanceId);
+		for (int i = 0; i < 3; i++) {
+			this.s3Service.putObject(bucketName, "test" + i, "This is test" + i);
+		}
+		ResponseEntity<JsonNode> response = this.restClient.delete()
+			.uri("/v2/service_instances/{instanceId}?service_id={serviceId}&plan_id={planId}", instanceId, serviceId,
+					planId)
+			.retrieve()
+			.toEntity(JsonNode.class);
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isEmpty();
+		String policyName = "s3-" + bucketName;
+		List<String> policyNames = this.iamClient.listRolePolicies(builder -> builder.roleName(role.roleName()))
+			.policyNames();
+		assertThat(policyNames).doesNotContain(policyName);
+	}
+
+	@Test
+	void deprovisioning_with_enable_versioning() {
+		Role role = this.iamService.createIamRole(Instance.builder()
+			.instanceId(UUID.randomUUID().toString())
+			.instanceName(instanceName)
+			.orgGuid(organizationGuid)
+			.orgName(organizationName)
+			.spaceGuid(spaceGuid)
+			.spaceName(spaceName)
+			.build());
+		boolean enableVersioning = true;
+		this.restClient.put()
+			.uri("/v2/service_instances/{instanceId}", instanceId)
+			.contentType(MediaType.APPLICATION_JSON)
+			.body("""
+					{
+					  "service_id": "%s",
+					  "plan_id": "%s",
+					  "context": {
+					    "platform": "cloudfoundry",
+					    "organization_guid": "%s",
+					    "space_guid": "%s",
+					    "organization_name": "%s",
+					    "space_name": "%s",
+					    "instance_name": "%s"
+					  },
+					  "parameters": {
+					    "role_name": "%s",
+					    "enable_versioning": %s
+					  },
+					  "organization_guid": "%s",
+					  "space_guid": "%s",
+					  "maintenance_info": {
+					    "version": "2.1.1+abcdef"
+					  }
+					}
+					""".formatted(serviceId, planId, organizationGuid, spaceGuid, organizationName, spaceName,
+					instanceName, role.roleName(), enableVersioning, organizationGuid, spaceGuid))
+			.retrieve()
+			.toEntity(JsonNode.class);
+		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isNotEmpty();
+		String bucketName = this.s3Service.defaultBucketName(instanceId);
+		for (int i = 0; i < 3; i++) {
+			this.s3Service.putObject(bucketName, "test" + i, "This is test" + i);
+		}
+		// put new versions
 		for (int i = 0; i < 3; i++) {
 			this.s3Service.putObject(bucketName, "test" + i, "This is test" + i);
 		}
