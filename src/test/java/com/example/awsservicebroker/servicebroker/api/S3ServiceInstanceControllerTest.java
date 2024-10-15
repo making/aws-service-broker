@@ -13,7 +13,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.shaded.org.checkerframework.checker.units.qual.A;
 import software.amazon.awssdk.services.iam.IamClient;
 import software.amazon.awssdk.services.iam.model.Role;
 
@@ -275,7 +274,7 @@ class S3ServiceInstanceControllerTest {
 			.retrieve()
 			.toEntity(JsonNode.class);
 		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isNotEmpty();
-		String bucketName = this.s3Service.bucketName(instanceId);
+		String bucketName = this.s3Service.defaultBucketName(instanceId);
 		for (int i = 0; i < 3; i++) {
 			this.s3Service.putObject(bucketName, "test" + i, "This is test" + i);
 		}

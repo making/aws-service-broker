@@ -44,12 +44,12 @@ public class S3Service {
 		this.region = awsRegionProvider.getRegion();
 	}
 
-	public String bucketName(String instanceId) {
+	public String defaultBucketName(String instanceId) {
 		return this.s3Props.bucketNamePrefix() + StringUtils.removeHyphen(instanceId);
 	}
 
 	public String createBucket(Instance instance) {
-		String bucketName = this.bucketName(instance.instanceId());
+		String bucketName = this.defaultBucketName(instance.instanceId());
 		logger.info("Creating bucket bucketName={} region={}", bucketName, this.region.id());
 		CreateBucketResponse response = this.s3Client.createBucket(builder -> builder
 			.createBucketConfiguration(CreateBucketConfiguration.builder().locationConstraint(this.region.id()).build())
@@ -119,10 +119,12 @@ public class S3Service {
 
 	public Optional<Bucket> findBucketByInstanceId(String instanceId) {
 		ListBucketsResponse response = this.s3Client.listBuckets();
-		return response.buckets()
-			.stream()
-			.filter(bucket -> bucket.name().startsWith(this.bucketName(instanceId)))
-			.findAny();
+		return response.buckets().stream().filter(bucket -> {
+			String bucketName = bucket.name();
+			return this.listBucketTags(bucketName)
+				.stream()
+				.anyMatch(tag -> tag.key().equals("instance_id") && tag.value().equals(instanceId));
+		}).findAny();
 	}
 
 	public String buildTrustPolicyForBucket(String bucketName) {
