@@ -25,7 +25,6 @@ services:
       displayName: Free
       bullets:
       - Create an IAM Role for your space
-      - At most one role per space
       costs:
       - amount:
           usd: 0
