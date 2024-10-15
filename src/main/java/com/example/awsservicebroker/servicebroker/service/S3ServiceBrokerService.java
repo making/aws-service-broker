@@ -78,7 +78,11 @@ public class S3ServiceBrokerService implements ServiceBrokerService {
 	 * value: the value of the <code>role_name</code> parameter, and key:
 	 * <code>policy_name</code> with value: <code>s3-{bucket_name}</code>.<br>
 	 * If the <code>bucket_name</code> parameter is provided, use it as the bucket name to
-	 * create.
+	 * create.<br>
+	 * If the <code>enable_versioning</code> parameter is provided, enable the bucket
+	 * versioning.<br>
+	 * If the <code>region</code> parameter is provided, create the bucket in the
+	 * specified region.
 	 * @param instanceId the ID of the service instance to provision
 	 * @param request the service provisioning request
 	 * @return a map of provisioning results (currently an empty map)
