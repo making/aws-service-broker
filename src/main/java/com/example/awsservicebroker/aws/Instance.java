@@ -1,10 +1,7 @@
 package com.example.awsservicebroker.aws;
 
 import java.util.List;
-import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
-
-import software.amazon.awssdk.services.iam.model.Tag;
 
 public record Instance(String instanceId, String instanceName, String orgGuid, String orgName, String spaceGuid,
 		String spaceName) {
