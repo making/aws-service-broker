@@ -14,14 +14,14 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.regions.providers.AwsRegionProvider;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.Bucket;
+import software.amazon.awssdk.services.s3.model.BucketVersioningStatus;
 import software.amazon.awssdk.services.s3.model.CreateBucketConfiguration;
 import software.amazon.awssdk.services.s3.model.CreateBucketResponse;
-import software.amazon.awssdk.services.s3.model.DeleteBucketRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListBucketsResponse;
-import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
-import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
-import software.amazon.awssdk.services.s3.model.S3Object;
+import software.amazon.awssdk.services.s3.model.ListObjectVersionsRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectVersionsResponse;
+import software.amazon.awssdk.services.s3.model.ObjectVersion;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
 
@@ -89,28 +89,34 @@ public class S3Service {
 	}
 
 	public void deleteBucket(String bucketName) {
-		ListObjectsV2Request listObjectsRequest = ListObjectsV2Request.builder().bucket(bucketName).build();
-		ListObjectsV2Response listObjectsResponse;
+		String keyMarker = null;
+		String versionIdMarker = null;
 		do {
-			listObjectsResponse = this.s3Client.listObjectsV2(listObjectsRequest);
-			List<S3Object> objects = listObjectsResponse.contents();
-			for (S3Object object : objects) {
+			ListObjectVersionsRequest listObjectVersionsRequest = ListObjectVersionsRequest.builder()
+				.bucket(bucketName)
+				.keyMarker(keyMarker)
+				.versionIdMarker(versionIdMarker)
+				.build();
+			ListObjectVersionsResponse listObjectVersionsResponse = this.s3Client
+				.listObjectVersions(listObjectVersionsRequest);
+			for (ObjectVersion version : listObjectVersionsResponse.versions()) {
 				DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
 					.bucket(bucketName)
-					.key(object.key())
+					.key(version.key())
+					.versionId(version.versionId())
 					.build();
-				logger.info("Deleting object bucketName={} object={}", bucketName, object.key());
+				logger.info("Deleting object bucketName={} key={} version={}", bucketName, version.key(),
+						version.versionId());
 				this.s3Client.deleteObject(deleteObjectRequest);
-				logger.info("Deleted object bucketName={} object={}", bucketName, object.key());
+				logger.info("Deleted object bucketName={} key={} version={}", bucketName, version.key(),
+						version.versionId());
 			}
-			listObjectsRequest = listObjectsRequest.toBuilder()
-				.continuationToken(listObjectsResponse.nextContinuationToken())
-				.build();
+			keyMarker = listObjectVersionsResponse.nextKeyMarker();
+			versionIdMarker = listObjectVersionsResponse.nextVersionIdMarker();
 		}
-		while (listObjectsResponse.isTruncated());
-		DeleteBucketRequest deleteBucketRequest = DeleteBucketRequest.builder().bucket(bucketName).build();
+		while (keyMarker != null && versionIdMarker != null);
 		logger.info("Deleting bucket bucketName={}", bucketName);
-		this.s3Client.deleteBucket(deleteBucketRequest);
+		this.s3Client.deleteBucket(builder -> builder.bucket(bucketName));
 		logger.info("Deleted bucket bucketName={}", bucketName);
 	}
 
@@ -126,6 +132,13 @@ public class S3Service {
 				.stream()
 				.anyMatch(tag -> tag.key().equals("instance_id") && tag.value().equals(instanceId));
 		}).findAny();
+	}
+
+	public void enableVersioning(String bucketName) {
+		logger.info("Enabling versioning bucketName={}", bucketName);
+		this.s3Client.putBucketVersioning(builder -> builder.bucket(bucketName)
+			.versioningConfiguration(config -> config.status(BucketVersioningStatus.ENABLED)));
+		logger.info("Enabled versioning bucketName={}", bucketName);
 	}
 
 	public String buildTrustPolicyForBucket(String bucketName) {
