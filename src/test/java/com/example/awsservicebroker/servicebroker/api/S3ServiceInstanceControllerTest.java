@@ -37,7 +37,7 @@ import static org.springframework.boot.test.context.SpringBootTest.WebEnvironmen
 @SpringBootTest(webEnvironment = RANDOM_PORT,
 		properties = { "iam.oidc-provider-arn=arn:aws:iam::123456789012:oidc-provider/example.com",
 				"logging.level.org.apache.http.wire=info" })
-// @ActiveProfiles("testcontainers")
+@ActiveProfiles("testcontainers")
 @Import(TestConfig.class)
 class S3ServiceInstanceControllerTest {
 

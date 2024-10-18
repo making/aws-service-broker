@@ -173,17 +173,25 @@ public class S3ServiceBrokerService implements ServiceBrokerService {
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Instance not found"));
 		String bucketName = bucket.name();
 		BindingParameters params = request.bindParametersTo(BindingParameters.class, this.objectMapper);
+		String roleName;
 		if (params != null && params.roleName() != null) {
-			String roleName = params.roleName();
+			roleName = params.roleName();
 			this.attachPolicyAndPutBucketTags(bucketName, roleName, bindingId);
 		}
-		else if (this.s3Service.listBucketTags(bucketName)
-			.stream()
-			.noneMatch(tag -> tag.key().equals(ROLE_NAME_TAG_KEY))) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-					"If you do not specify the 'role_name' parameter in the service instance, you must specify the 'role_name' parameter in the service binding.");
+		else {
+			Tag tag = this.s3Service.listBucketTags(bucketName)
+				.stream()
+				.filter(t -> t.key().equals(ROLE_NAME_TAG_KEY))
+				.findAny()
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+						"If you do not specify the 'role_name' parameter in the service instance, you must specify the 'role_name' parameter in the service binding."));
+			roleName = tag.value();
 		}
-		return Map.of("bucket_name", bucket.name(), "region", this.region.id());
+		Role role = this.iamService.findRoleByRoleName(roleName)
+			.orElseThrow(() -> new ResponseStatusException(HttpStatus.GONE,
+					"The corresponding IAM role (roleName: %s) has gone.".formatted(roleName)));
+		return Map.of("role_arn", role.arn(), "role_name", roleName, "bucket_name", bucket.name(), "region",
+				this.region.id());
 	}
 
 	/**

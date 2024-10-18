@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import com.example.awsservicebroker.aws.Instance;
@@ -77,14 +78,14 @@ public class IamService {
 		logger.info("Detached inline policy={} from role={}", policyName, roleName);
 	}
 
-	public Optional<Role> findRoleByInstanceId(String instanceId) {
+	public Optional<Role> findRoleByPolicyName(String policyName) {
 		return this.iamClient.listRoles(builder -> builder.pathPrefix(this.iamProps.rolePath()).maxItems(1000))
 			.roles()
 			.stream()
-			.filter(role -> this.iamClient.listRoleTags(builder -> builder.roleName(role.roleName()).maxItems(1000))
-				.tags()
+			.filter(role -> this.iamClient.listRolePolicies(builder -> builder.roleName(role.roleName()).maxItems(1000))
+				.policyNames()
 				.stream()
-				.anyMatch(tag -> tag.key().equals("instance_id") && tag.value().equals(instanceId)))
+				.anyMatch(policy -> Objects.equals(policy, policyName)))
 			.findAny();
 	}
 
@@ -96,8 +97,8 @@ public class IamService {
 			.findAny();
 	}
 
-	public Optional<Role> findRoleByOrgNameAndSpaceName(String orgName, String spaceName) {
-		return this.iamClient.listRoles(builder -> builder.pathPrefix(this.iamProps.rolePath()))
+	public Optional<Role> findRoleByTags(Predicate<Map<String, String>> predicate) {
+		return this.iamClient.listRoles(builder -> builder.pathPrefix(this.iamProps.rolePath()).maxItems(1000))
 			.roles()
 			.stream()
 			.filter(role -> {
@@ -106,10 +107,19 @@ public class IamService {
 					.tags()
 					.stream()
 					.collect(Collectors.toMap(Tag::key, Tag::value));
-				return Objects.equals(tagMap.get("org_name"), orgName)
-						&& Objects.equals(tagMap.get("space_name"), spaceName);
+				return predicate.test(tagMap);
 			})
 			.findAny();
+	}
+
+	public Optional<Role> findRoleByInstanceId(String instanceId) {
+		return this.findRoleByTags(
+				tagMap -> tagMap.containsKey("instance_id") && tagMap.get("instance_id").equals(instanceId));
+	}
+
+	public Optional<Role> findRoleByOrgNameAndSpaceName(String orgName, String spaceName) {
+		return this.findRoleByTags(tagMap -> Objects.equals(tagMap.get("org_name"), orgName)
+				&& Objects.equals(tagMap.get("space_name"), spaceName));
 	}
 
 	public void deleteIamRoleByInstanceId(String instanceId) {
@@ -131,36 +141,25 @@ public class IamService {
 	}
 
 	void detachPoliciesFromRole(String roleName) {
-		ListAttachedRolePoliciesRequest listAttachedPoliciesRequest = ListAttachedRolePoliciesRequest.builder()
-			.roleName(roleName)
-			.build();
-		ListAttachedRolePoliciesResponse listAttachedPoliciesResponse = this.iamClient
-			.listAttachedRolePolicies(listAttachedPoliciesRequest);
+		ListAttachedRolePoliciesResponse listAttachedPoliciesResponse = this.iamClient.listAttachedRolePolicies(
+				builder -> builder.pathPrefix(this.iamProps.rolePath()).roleName(roleName).build());
 		List<AttachedPolicy> attachedPolicies = listAttachedPoliciesResponse.attachedPolicies();
 		for (AttachedPolicy policy : attachedPolicies) {
-			DetachRolePolicyRequest detachRolePolicyRequest = DetachRolePolicyRequest.builder()
-				.roleName(roleName)
-				.policyArn(policy.policyArn())
-				.build();
 			logger.info("Detaching policy={} roleName={}", policy.policyName(), roleName);
-			this.iamClient.detachRolePolicy(detachRolePolicyRequest);
+			this.iamClient
+				.detachRolePolicy(builder -> builder.roleName(roleName).policyArn(policy.policyArn()).build());
 			logger.info("Detached policy={} roleName={}", policy.policyName(), roleName);
 		}
 	}
 
 	void deleteInlinePoliciesFromRole(String roleName) {
-		ListRolePoliciesRequest listRolePoliciesRequest = ListRolePoliciesRequest.builder().roleName(roleName).build();
-
-		ListRolePoliciesResponse listRolePoliciesResponse = this.iamClient.listRolePolicies(listRolePoliciesRequest);
+		ListRolePoliciesResponse listRolePoliciesResponse = this.iamClient
+			.listRolePolicies(builder -> builder.roleName(roleName).build());
 		List<String> inlinePolicies = listRolePoliciesResponse.policyNames();
 
 		for (String policyName : inlinePolicies) {
-			DeleteRolePolicyRequest deleteRolePolicyRequest = DeleteRolePolicyRequest.builder()
-				.roleName(roleName)
-				.policyName(policyName)
-				.build();
 			logger.info("Deleting inline policy={} roleName={}", policyName, roleName);
-			this.iamClient.deleteRolePolicy(deleteRolePolicyRequest);
+			this.iamClient.deleteRolePolicy(builder -> builder.roleName(roleName).policyName(policyName).build());
 			logger.info("Deleted inline policy={} roleName={}", policyName, roleName);
 		}
 	}

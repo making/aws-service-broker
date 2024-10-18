@@ -58,3 +58,33 @@ services:
       - amount:
           usd: 0
         unit: MONTHLY
+- id: 0675f97b-029d-4ab9-b5aa-53b6602cc53c
+  name: dynamodb
+  description: dynamodb
+  bindable: true
+  planUpdateable: false
+  requires: [ ]
+  tags:
+  - AWS
+  - DynamoDB
+  metadata:
+    displayName: dynamodb
+    documentationUrl: https://github.com/making/aws-service-broker
+    imageUrl: https://placehold.co/48x48.png
+    longDescription: Set up DynamoDB for you
+    providerDisplayName: "@making"
+    supportUrl: https://github.com/making/aws-service-broker
+  plans:
+  - id: d3094f5c-dc91-4617-9bd6-e6b52f920148
+    name: iam-only
+    description: Create and attach IAM Policy to the provided IAM Role
+    free: true
+    metadata:
+      displayName: IAM Only
+      bullets:
+      - Create and attach IAM Policy to the provided IAM Role
+      - No DynamoDB table is created by this service itself
+      costs:
+      - amount:
+          usd: 0
+        unit: MONTHLY

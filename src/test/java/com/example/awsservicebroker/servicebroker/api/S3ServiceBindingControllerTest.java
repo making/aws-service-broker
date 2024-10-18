@@ -150,6 +150,8 @@ class S3ServiceBindingControllerTest {
 		assertThat(body.get("credentials").get("region")).isEqualTo(new TextNode("ap-northeast-1"));
 		String bucketName = "cf-" + StringUtils.removeHyphen(instanceId);
 		assertThat(body.get("credentials").get("bucket_name")).isEqualTo(new TextNode(bucketName));
+		assertThat(body.get("credentials").get("role_name")).isEqualTo(new TextNode(role.roleName()));
+		assertThat(body.get("credentials").get("role_arn")).isEqualTo(new TextNode(role.arn()));
 		List<Tag> tags = this.s3Service.listBucketTags(bucketName);
 		assertThat(tags).contains(Tag.builder().key("role_name").value(role.roleName()).build());
 		String policyName = "s3-" + bucketName;
@@ -224,6 +226,8 @@ class S3ServiceBindingControllerTest {
 		assertThat(body.has("credentials")).isTrue();
 		assertThat(body.get("credentials").get("region")).isEqualTo(new TextNode("ap-northeast-1"));
 		assertThat(body.get("credentials").get("bucket_name")).isEqualTo(new TextNode(bucketName));
+		assertThat(body.get("credentials").get("role_name")).isEqualTo(new TextNode(role.roleName()));
+		assertThat(body.get("credentials").get("role_arn")).isEqualTo(new TextNode(role.arn()));
 		List<Tag> tags = this.s3Service.listBucketTags(bucketName);
 		assertThat(tags).contains(Tag.builder().key("role_name").value(role.roleName()).build());
 		String policyName = "s3-" + bucketName;
@@ -295,6 +299,8 @@ class S3ServiceBindingControllerTest {
 		assertThat(body.get("credentials").get("region")).isEqualTo(new TextNode("ap-northeast-1"));
 		String bucketName = "cf-" + StringUtils.removeHyphen(instanceId);
 		assertThat(body.get("credentials").get("bucket_name")).isEqualTo(new TextNode(bucketName));
+		assertThat(body.get("credentials").get("role_name")).isEqualTo(new TextNode(role.roleName()));
+		assertThat(body.get("credentials").get("role_arn")).isEqualTo(new TextNode(role.arn()));
 		List<Tag> tags = this.s3Service.listBucketTags(bucketName);
 		String binding = StringUtils.removeHyphen(bindingId);
 		assertThat(tags).contains(Tag.builder().key("role_name_" + binding).value(role.roleName()).build());
