@@ -32,7 +32,7 @@ import static org.springframework.boot.test.context.SpringBootTest.WebEnvironmen
 @SpringBootTest(webEnvironment = RANDOM_PORT,
 		properties = { "iam.oidc-provider-arn=arn:aws:iam::123456789012:oidc-provider/example.com",
 				"logging.level.org.apache.http.wire=info", "spring.cloud.aws.s3.region=ap-northeast-1" })
-// @ActiveProfiles("testcontainers")
+@ActiveProfiles("testcontainers")
 @Import(TestConfig.class)
 public class DynamodbServiceBindingControllerTest {
 
