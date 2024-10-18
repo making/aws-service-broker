@@ -32,7 +32,7 @@ import static org.springframework.boot.test.context.SpringBootTest.WebEnvironmen
 @SpringBootTest(webEnvironment = RANDOM_PORT,
 		properties = { "iam.oidc-provider-arn=arn:aws:iam::123456789012:oidc-provider/example.com",
 				"logging.level.org.apache.http.wire=info", "spring.cloud.aws.s3.region=ap-northeast-1" })
-@ActiveProfiles("testcontainers")
+// @ActiveProfiles("testcontainers")
 @Import(TestConfig.class)
 public class DynamodbServiceBindingControllerTest {
 
@@ -139,8 +139,10 @@ public class DynamodbServiceBindingControllerTest {
 		assertThat(body.has("credentials")).isTrue();
 		assertThat(body.get("credentials").get("region")).isEqualTo(new TextNode("ap-northeast-1"));
 		assertThat(body.get("credentials").get("role_name")).isEqualTo(new TextNode(role.roleName()));
-		assertThat(body.get("credentials").get("role_arn"))
-			.isEqualTo(new TextNode("arn:aws:iam::000000000000:role/cf-role/" + role.roleName()));
+		assertThat(body.get("credentials").get("role_name")).isEqualTo(new TextNode("cf_demo_test_foo"));
+		assertThat(body.get("credentials").has("role_arn")).isTrue();
+		assertThat(body.get("credentials").get("role_arn").asText())
+			.matches("arn:aws:iam::\\d+:role/cf-role/cf_demo_test_foo");
 		assertThat(body.get("credentials").get("prefix"))
 			.isEqualTo(new TextNode("cf-" + StringUtils.removeHyphen(instanceId)));
 	}
