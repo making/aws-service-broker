@@ -74,6 +74,7 @@ public class S3Service {
 		logger.info("Putting tags to bucket bucketName={} tags={}", bucketName, tagsToPut);
 		this.s3Client.putBucketTagging(
 				builder -> builder.bucket(bucketName).tagging(Tagging.builder().tagSet(tagsToPut).build()));
+		logger.info("Putt tags to bucket bucketName={} tags={}", bucketName, tagsToPut);
 	}
 
 	public void removeBucketTags(String bucketName, List<Tag> tags) {
@@ -82,6 +83,7 @@ public class S3Service {
 		logger.info("Putting tags to bucket bucketName={} tags={}", bucketName, tagsToPut);
 		this.s3Client.putBucketTagging(
 				builder -> builder.bucket(bucketName).tagging(Tagging.builder().tagSet(tagsToPut).build()));
+		logger.info("Put tags to bucket bucketName={} tags={}", bucketName, tagsToPut);
 	}
 
 	public void putObject(String bucketName, String objectKey, String content) {

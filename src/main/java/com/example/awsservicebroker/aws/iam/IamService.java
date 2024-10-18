@@ -14,12 +14,8 @@ import software.amazon.awssdk.services.iam.IamClient;
 import software.amazon.awssdk.services.iam.model.AttachedPolicy;
 import software.amazon.awssdk.services.iam.model.CreateRoleRequest;
 import software.amazon.awssdk.services.iam.model.CreateRoleResponse;
-import software.amazon.awssdk.services.iam.model.DeleteRolePolicyRequest;
 import software.amazon.awssdk.services.iam.model.DeleteRoleRequest;
-import software.amazon.awssdk.services.iam.model.DetachRolePolicyRequest;
-import software.amazon.awssdk.services.iam.model.ListAttachedRolePoliciesRequest;
 import software.amazon.awssdk.services.iam.model.ListAttachedRolePoliciesResponse;
-import software.amazon.awssdk.services.iam.model.ListRolePoliciesRequest;
 import software.amazon.awssdk.services.iam.model.ListRolePoliciesResponse;
 import software.amazon.awssdk.services.iam.model.Role;
 import software.amazon.awssdk.services.iam.model.Tag;
@@ -162,6 +158,22 @@ public class IamService {
 			this.iamClient.deleteRolePolicy(builder -> builder.roleName(roleName).policyName(policyName).build());
 			logger.info("Deleted inline policy={} roleName={}", policyName, roleName);
 		}
+	}
+
+	public List<Tag> listRoleTags(String roleName) {
+		return this.iamClient.listRoleTags(builder -> builder.roleName(roleName).maxItems(1000)).tags();
+	}
+
+	public void addRoleTags(String roleName, List<Tag> tags) {
+		logger.info("Adding tags to role roleName={} tags={}", roleName, tags);
+		this.iamClient.tagRole(builder -> builder.roleName(roleName).tags(tags).build());
+		logger.info("Added tags to role roleName={} tags={}", roleName, tags);
+	}
+
+	public void removeRoleTags(String roleName, List<String> tagKeys) {
+		logger.info("Removing tags to role roleName={} tagKeys={}", roleName, tagKeys);
+		this.iamClient.untagRole(builder -> builder.roleName(roleName).tagKeys(tagKeys));
+		logger.info("Removed tags to role roleName={} tagKeys={}", roleName, tagKeys);
 	}
 
 	private static String buildAssumeRolePolicyDocument(String oidcProviderArn, String oidcProviderDomain,

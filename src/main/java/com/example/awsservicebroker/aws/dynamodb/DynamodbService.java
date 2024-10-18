@@ -17,7 +17,7 @@ public class DynamodbService {
 		return "dynamodb-" + StringUtils.removeHyphen(instanceId);
 	}
 
-	public String tablePrefix(String instanceId) {
+	public String defaultTablePrefix(String instanceId) {
 		return this.props.tablePrefix() + StringUtils.removeHyphen(instanceId);
 	}
 

@@ -1,5 +1,6 @@
 package com.example.awsservicebroker.servicebroker.service;
 
+import java.util.List;
 import java.util.Map;
 
 import com.example.awsservicebroker.aws.dynamodb.DynamodbService;
@@ -11,6 +12,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.regions.providers.AwsRegionProvider;
 import software.amazon.awssdk.services.iam.model.Role;
+import software.amazon.awssdk.services.iam.model.Tag;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.lang.Nullable;
@@ -20,6 +22,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Component
 public class DynamodbServiceBrokerService implements ServiceBrokerService {
+
+	public static final String ROLE_TAG_KEY_PREFIX = "dynamodb_";
 
 	private final DynamodbService dynamodbService;
 
@@ -37,6 +41,10 @@ public class DynamodbServiceBrokerService implements ServiceBrokerService {
 		this.objectMapper = objectMapper;
 	}
 
+	String roleTagKey(String instanceId) {
+		return ROLE_TAG_KEY_PREFIX + instanceId;
+	}
+
 	@Override
 	public Map<String, Object> provisioning(String instanceId, ServiceProvisioningRequest request) {
 		ProvisioningParameters params = request.bindParametersTo(ProvisioningParameters.class, this.objectMapper);
@@ -47,29 +55,45 @@ public class DynamodbServiceBrokerService implements ServiceBrokerService {
 		this.iamService.findRoleByRoleName(roleName)
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
 					"The given role (role_name=%s) is not found".formatted(roleName)));
-		String policyName = this.dynamodbService.policyName(instanceId);
-		String tablePrefix = this.dynamodbService.tablePrefix(instanceId);
-		String policy = this.dynamodbService.buildTrustPolicyForTable(tablePrefix);
-		this.iamService.attachInlinePolicyToRole(roleName, policyName, policy);
+		String roleTagKey = this.roleTagKey(instanceId);
+		String tablePrefix = this.dynamodbService.defaultTablePrefix(instanceId);
+		this.iamService.addRoleTags(roleName, List.of(Tag.builder().key(roleTagKey).value(tablePrefix).build()));
 		return Map.of();
 	}
 
 	@Override
 	public Map<String, Object> bind(String instanceId, String bindingId, ServiceBindRequest request) {
-		String tablePrefix = this.dynamodbService.tablePrefix(instanceId);
 		String policyName = this.dynamodbService.policyName(instanceId);
-		Role role = this.iamService.findRoleByPolicyName(policyName)
+		String roleTagKey = this.roleTagKey(instanceId);
+		Role role = this.iamService.findRoleByTags(tagMap -> tagMap.containsKey(roleTagKey))
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.GONE,
-					"The corresponding IAM role (policyName: %s) has gone.".formatted(policyName)));
+					"Role tag (key: %s) is missing".formatted(roleTagKey)));
+		String tablePrefix = this.iamService.listRoleTags(role.roleName())
+			.stream()
+			.filter(tuple -> tuple.key().equals(roleTagKey))
+			.findAny()
+			.orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT,
+					"Role tag (key: %s) is missing".formatted(roleTagKey)))
+			.value();
+		String policy = this.dynamodbService.buildTrustPolicyForTable(tablePrefix);
+		this.iamService.attachInlinePolicyToRole(role.roleName(), policyName, policy);
 		return Map.of("role_arn", role.arn(), "role_name", role.roleName(), "prefix", tablePrefix, "region",
 				region.id());
 	}
 
 	@Override
-	public void deprovisioning(String instanceId, String serviceId, String planId) {
+	public void unbind(String instanceId, String bindingId, String serviceId, String planId) {
 		String policyName = this.dynamodbService.policyName(instanceId);
-		this.iamService.findRoleByPolicyName(policyName)
+		String roleTagKey = this.roleTagKey(instanceId);
+		this.iamService.findRoleByTags(tagMap -> tagMap.containsKey(roleTagKey))
 			.ifPresent(role -> this.iamService.detachInlinePolicyFromRole(role.roleName(), policyName));
+	}
+
+	@Override
+	public void deprovisioning(String instanceId, String serviceId, String planId) {
+		String roleTagKey = this.roleTagKey(instanceId);
+		this.iamService.findRoleByTags(tagMap -> tagMap.containsKey(roleTagKey))
+			.ifPresent(role -> this.iamService.removeRoleTags(role.roleName(), List.of(roleTagKey)));
 	}
 
 	public record ProvisioningParameters(@Nullable @JsonProperty("role_name") String roleName) {

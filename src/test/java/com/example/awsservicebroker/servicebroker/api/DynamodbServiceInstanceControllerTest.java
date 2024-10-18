@@ -1,7 +1,6 @@
 package com.example.awsservicebroker.servicebroker.api;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import com.example.awsservicebroker.aws.Instance;
@@ -9,12 +8,15 @@ import com.example.awsservicebroker.aws.dynamodb.DynamodbService;
 import com.example.awsservicebroker.aws.iam.IamService;
 import com.example.awsservicebroker.config.TestConfig;
 import com.example.awsservicebroker.servicebroker.AwsService;
+import com.example.awsservicebroker.servicebroker.service.DynamodbServiceBrokerService;
+import com.example.awsservicebroker.utils.StringUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.iam.IamClient;
 import software.amazon.awssdk.services.iam.model.Role;
+import software.amazon.awssdk.services.iam.model.Tag;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -116,9 +118,11 @@ public class DynamodbServiceInstanceControllerTest {
 			.retrieve()
 			.toEntity(JsonNode.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-		List<String> policyNames = this.iamClient.listRolePolicies(builder -> builder.roleName(role.roleName()))
-			.policyNames();
-		assertThat(policyNames).contains(this.dynamodbService.policyName(instanceId));
+		List<Tag> tags = this.iamClient.listRoleTags(builder -> builder.roleName(role.roleName())).tags();
+		assertThat(tags).contains(Tag.builder()
+			.key(DynamodbServiceBrokerService.ROLE_TAG_KEY_PREFIX + instanceId)
+			.value("cf-" + StringUtils.removeHyphen(instanceId))
+			.build());
 	}
 
 	@Test
@@ -228,9 +232,11 @@ public class DynamodbServiceInstanceControllerTest {
 			.retrieve()
 			.toEntity(JsonNode.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-		List<String> policyNames = this.iamClient.listRolePolicies(builder -> builder.roleName(role.roleName()))
-			.policyNames();
-		assertThat(policyNames).doesNotContain(this.dynamodbService.policyName(instanceId));
+		List<Tag> tags = this.iamClient.listRoleTags(builder -> builder.roleName(role.roleName())).tags();
+		assertThat(tags).doesNotContain(Tag.builder()
+			.key(DynamodbServiceBrokerService.ROLE_TAG_KEY_PREFIX + instanceId)
+			.value("cf-" + StringUtils.removeHyphen(instanceId))
+			.build());
 	}
 
 }
