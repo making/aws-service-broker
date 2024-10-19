@@ -13,7 +13,8 @@
         "iam:DeleteRolePolicy",
         "iam:DeleteRole",
         "iam:TagRole",
-        "iam:ListRoleTags"
+        "iam:ListRoleTags",
+        "iam:UntagRole"z
       ],
       "Resource": "arn:aws:iam::CHANGE_ME:role/cf-role/*"
     },
