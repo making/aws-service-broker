@@ -148,7 +148,7 @@ public class DynamodbServiceBindingControllerTest {
 			.isEqualTo(new TextNode("cf-" + StringUtils.removeHyphen(instanceId)+ "-"));
 		List<String> policyNames = this.iamClient.listRolePolicies(builder -> builder.roleName(role.roleName()))
 			.policyNames();
-		assertThat(policyNames).contains(this.dynamodbService.policyName(instanceId));
+		assertThat(policyNames).contains(this.dynamodbService.policyName(instanceId, bindingId));
 	}
 
 	@Test
@@ -273,7 +273,7 @@ public class DynamodbServiceBindingControllerTest {
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 		List<String> policyNames = this.iamClient.listRolePolicies(builder -> builder.roleName(role.roleName()))
 			.policyNames();
-		assertThat(policyNames).doesNotContain(this.dynamodbService.policyName(instanceId));
+		assertThat(policyNames).doesNotContain(this.dynamodbService.policyName(instanceId, bindingId));
 	}
 
 }

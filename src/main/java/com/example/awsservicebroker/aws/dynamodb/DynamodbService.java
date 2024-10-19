@@ -13,8 +13,8 @@ public class DynamodbService {
 		this.props = props;
 	}
 
-	public String policyName(String instanceId) {
-		return "dynamodb-" + StringUtils.removeHyphen(instanceId);
+	public String policyName(String instanceId, String bindingId) {
+		return "dynamodb-" + StringUtils.removeHyphen(instanceId) + "-" + StringUtils.removeHyphen(bindingId);
 	}
 
 	public String defaultTablePrefix(String instanceId) {

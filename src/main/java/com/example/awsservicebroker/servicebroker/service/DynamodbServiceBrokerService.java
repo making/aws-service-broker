@@ -63,7 +63,7 @@ public class DynamodbServiceBrokerService implements ServiceBrokerService {
 
 	@Override
 	public Map<String, Object> bind(String instanceId, String bindingId, ServiceBindRequest request) {
-		String policyName = this.dynamodbService.policyName(instanceId);
+		String policyName = this.dynamodbService.policyName(instanceId, bindingId);
 		String roleTagKey = this.roleTagKey(instanceId);
 		Role role = this.iamService.findRoleByTags(tagMap -> tagMap.containsKey(roleTagKey))
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.GONE,
@@ -83,7 +83,7 @@ public class DynamodbServiceBrokerService implements ServiceBrokerService {
 
 	@Override
 	public void unbind(String instanceId, String bindingId, String serviceId, String planId) {
-		String policyName = this.dynamodbService.policyName(instanceId);
+		String policyName = this.dynamodbService.policyName(instanceId, bindingId);
 		String roleTagKey = this.roleTagKey(instanceId);
 		this.iamService.findRoleByTags(tagMap -> tagMap.containsKey(roleTagKey))
 			.ifPresent(role -> this.iamService.detachInlinePolicyFromRole(role.roleName(), policyName));
