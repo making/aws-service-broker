@@ -121,7 +121,7 @@ public class DynamodbServiceInstanceControllerTest {
 		List<Tag> tags = this.iamClient.listRoleTags(builder -> builder.roleName(role.roleName())).tags();
 		assertThat(tags).contains(Tag.builder()
 			.key(DynamodbServiceBrokerService.ROLE_TAG_KEY_PREFIX + instanceId)
-			.value("cf-" + StringUtils.removeHyphen(instanceId))
+			.value("cf-" + StringUtils.removeHyphen(instanceId) + "-")
 			.build());
 	}
 
@@ -235,7 +235,7 @@ public class DynamodbServiceInstanceControllerTest {
 		List<Tag> tags = this.iamClient.listRoleTags(builder -> builder.roleName(role.roleName())).tags();
 		assertThat(tags).doesNotContain(Tag.builder()
 			.key(DynamodbServiceBrokerService.ROLE_TAG_KEY_PREFIX + instanceId)
-			.value("cf-" + StringUtils.removeHyphen(instanceId))
+			.value("cf-" + StringUtils.removeHyphen(instanceId) + "-")
 			.build());
 	}
 

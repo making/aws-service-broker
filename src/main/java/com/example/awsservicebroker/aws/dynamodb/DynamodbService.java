@@ -18,7 +18,7 @@ public class DynamodbService {
 	}
 
 	public String defaultTablePrefix(String instanceId) {
-		return this.props.tablePrefix() + StringUtils.removeHyphen(instanceId);
+		return this.props.tablePrefix() + StringUtils.removeHyphen(instanceId) + "-";
 	}
 
 	public String buildTrustPolicyForTable(String tablePrefix) {

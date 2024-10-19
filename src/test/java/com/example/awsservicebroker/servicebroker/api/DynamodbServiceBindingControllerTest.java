@@ -145,7 +145,7 @@ public class DynamodbServiceBindingControllerTest {
 		assertThat(body.get("credentials").get("role_arn").asText())
 			.matches("arn:aws:iam::\\d+:role/cf-role/cf_demo_test_foo");
 		assertThat(body.get("credentials").get("prefix"))
-			.isEqualTo(new TextNode("cf-" + StringUtils.removeHyphen(instanceId)));
+			.isEqualTo(new TextNode("cf-" + StringUtils.removeHyphen(instanceId)+ "-"));
 		List<String> policyNames = this.iamClient.listRolePolicies(builder -> builder.roleName(role.roleName()))
 			.policyNames();
 		assertThat(policyNames).contains(this.dynamodbService.policyName(instanceId));
