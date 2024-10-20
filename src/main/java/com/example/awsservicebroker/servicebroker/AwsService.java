@@ -1,6 +1,7 @@
 package com.example.awsservicebroker.servicebroker;
 
 import java.util.List;
+import java.util.Locale;
 
 import com.example.awsservicebroker.utils.StringUtils;
 
@@ -39,6 +40,10 @@ public enum AwsService {
 			}
 		}
 		return null;
+	}
+
+	public String policyName(String instanceId, String bindingId) {
+		return name().toLowerCase(Locale.ENGLISH) + "-" + StringUtils.removeHyphen(instanceId) + "-" + StringUtils.removeHyphen(bindingId);
 	}
 
 	public String getServiceBrokerServiceBeanName() {

@@ -5,6 +5,7 @@ import java.util.Map;
 
 import com.example.awsservicebroker.aws.dynamodb.DynamodbService;
 import com.example.awsservicebroker.aws.iam.IamService;
+import com.example.awsservicebroker.servicebroker.AwsService;
 import com.example.awsservicebroker.servicebroker.ServiceBindRequest;
 import com.example.awsservicebroker.servicebroker.ServiceProvisioningRequest;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -63,7 +64,7 @@ public class DynamodbServiceBrokerService implements ServiceBrokerService {
 
 	@Override
 	public Map<String, Object> bind(String instanceId, String bindingId, ServiceBindRequest request) {
-		String policyName = this.dynamodbService.policyName(instanceId, bindingId);
+		String policyName = AwsService.DYNAMODB.policyName(instanceId, bindingId);
 		String roleTagKey = this.roleTagKey(instanceId);
 		Role role = this.iamService.findRoleByTags(tagMap -> tagMap.containsKey(roleTagKey))
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.GONE,
@@ -83,7 +84,7 @@ public class DynamodbServiceBrokerService implements ServiceBrokerService {
 
 	@Override
 	public void unbind(String instanceId, String bindingId, String serviceId, String planId) {
-		String policyName = this.dynamodbService.policyName(instanceId, bindingId);
+		String policyName = AwsService.DYNAMODB.policyName(instanceId, bindingId);
 		String roleTagKey = this.roleTagKey(instanceId);
 		this.iamService.findRoleByTags(tagMap -> tagMap.containsKey(roleTagKey))
 			.ifPresent(role -> this.iamService.detachInlinePolicyFromRole(role.roleName(), policyName));
