@@ -1,6 +1,5 @@
 package com.example.awsservicebroker.servicebroker.service;
 
-import java.util.List;
 import java.util.Map;
 
 import com.example.awsservicebroker.aws.iam.IamService;
@@ -24,18 +23,21 @@ import static com.example.awsservicebroker.servicebroker.service.ServiceBrokerSe
 import static com.example.awsservicebroker.servicebroker.service.ServiceBrokerService.splitTagValue;
 
 @Component
-public class S3ServiceBrokerService implements ServiceBrokerService {
+public class S3ServiceBrokerService extends AbstractServiceBrokerService {
 
 	private final S3Service s3Service;
-
-	private final IamService iamService;
 
 	private final ObjectMapper objectMapper;
 
 	public S3ServiceBrokerService(S3Service s3Service, IamService iamService, ObjectMapper objectMapper) {
+		super(iamService);
 		this.s3Service = s3Service;
-		this.iamService = iamService;
 		this.objectMapper = objectMapper;
+	}
+
+	@Override
+	protected AwsService awsService() {
+		return AwsService.S3;
 	}
 
 	@Override
@@ -45,22 +47,16 @@ public class S3ServiceBrokerService implements ServiceBrokerService {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "'role_name' parameter is required");
 		}
 		String roleName = params.roleName();
-		this.iamService.findRoleByRoleName(roleName)
-			.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-					"The given role (role_name=%s) is not found".formatted(roleName)));
-		String bucketNameToCreate = params.bucketName();
-		String regionNameToCreate = params.region();
-		CreateBucketResult result = this.s3Service.createBucket(this.buildInstance(instanceId, request),
-				bucketNameToCreate, regionNameToCreate);
-		if (params.enableVersioning()) {
-			this.s3Service.enableVersioning(result.bucketName());
-		}
-		String roleTagKey = AwsService.S3.roleTagKey(instanceId);
-		this.iamService.addRoleTags(roleName,
-				List.of(software.amazon.awssdk.services.iam.model.Tag.builder()
-					.key(roleTagKey)
-					.value(joinTagValue(result.bucketName(), result.region()))
-					.build()));
+		super.addRoleTag(roleName, instanceId, () -> {
+			String bucketNameToCreate = params.bucketName();
+			String regionNameToCreate = params.region();
+			CreateBucketResult result = this.s3Service.createBucket(this.buildInstance(instanceId, request),
+					bucketNameToCreate, regionNameToCreate);
+			if (params.enableVersioning()) {
+				this.s3Service.enableVersioning(result.bucketName());
+			}
+			return joinTagValue(result.bucketName(), result.region());
+		});
 		return Map.of();
 	}
 
@@ -68,17 +64,8 @@ public class S3ServiceBrokerService implements ServiceBrokerService {
 	public Map<String, Object> update(String instanceId, ServiceUpdateRequest request) {
 		UpdatingParameters params = request.bindParametersTo(UpdatingParameters.class, this.objectMapper);
 		if (params != null) {
-			String roleTagKey = AwsService.S3.roleTagKey(instanceId);
-			Role role = this.iamService.findRoleByTags(tagMap -> tagMap.containsKey(roleTagKey))
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.GONE, "The instance has gone."));
-			List<software.amazon.awssdk.services.iam.model.Tag> tags = this.iamService.listRoleTags(role.roleName());
-			software.amazon.awssdk.services.iam.model.Tag roleTag = tags.stream()
-				.filter(tag -> tag.key().equals(roleTagKey))
-				.findAny()
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.GONE,
-						"The corresponding tag '%s' is not found in the role '%s'.".formatted(roleTagKey,
-								role.roleName())));
-			String[] tagValue = splitTagValue(roleTag.value());
+			RoleAndRoleTagValue roleAndRoleTagValue = super.findRoleAndRoleTagValue(instanceId);
+			String[] tagValue = splitTagValue(roleAndRoleTagValue.roleTagValue());
 			String bucketName = tagValue[0];
 			if (params.enableVersioning()) {
 				this.s3Service.enableVersioning(bucketName);
@@ -91,49 +78,35 @@ public class S3ServiceBrokerService implements ServiceBrokerService {
 	}
 
 	@Override
-	public void deprovisioning(String instanceId, String serviceId, String planId) {
-		String roleTagKey = AwsService.S3.roleTagKey(instanceId);
-		this.iamService.findRoleByTags(tagMap -> tagMap.containsKey(roleTagKey)).ifPresent(role -> {
-			List<software.amazon.awssdk.services.iam.model.Tag> tags = this.iamService.listRoleTags(role.roleName());
-			tags.stream().filter(tag -> tag.key().equals(roleTagKey)).findAny().ifPresent(tag -> {
-				String value = tag.value();
-				if (StringUtils.hasText(value)) {
-					String bucketName = splitTagValue(value)[0];
-					this.s3Service.deleteBucket(bucketName);
-				}
-			});
-			this.iamService.removeRoleTags(role.roleName(), List.of(roleTagKey));
-		});
-	}
-
-	@Override
 	public Map<String, Object> bind(String instanceId, String bindingId, ServiceBindRequest request) {
-		String roleTagKey = AwsService.S3.roleTagKey(instanceId);
-		Role role = this.iamService.findRoleByTags(tagMap -> tagMap.containsKey(roleTagKey))
-			.orElseThrow(() -> new ResponseStatusException(HttpStatus.GONE, "Instance has gone"));
-		List<software.amazon.awssdk.services.iam.model.Tag> tags = this.iamService.listRoleTags(role.roleName());
-		software.amazon.awssdk.services.iam.model.Tag roleTag = tags.stream()
-			.filter(tag -> tag.key().equals(roleTagKey))
-			.findAny()
-			.orElseThrow(() -> new ResponseStatusException(HttpStatus.GONE,
-					"The corresponding tag '%s' is not found in the role '%s'.".formatted(roleTagKey,
-							role.roleName())));
-		String[] tagValue = splitTagValue(roleTag.value());
-		String bucketName = tagValue[0];
-		String region = tagValue[1];
-		String policyName = AwsService.S3.policyName(instanceId, bindingId);
-		String policy = this.s3Service.buildTrustPolicyForBucket(bucketName);
-		this.iamService.attachInlinePolicyToRole(role.roleName(), policyName, policy);
+		RoleAndResult<String[]> roleAndResult = super.attachInlinePolicy(instanceId, bindingId, roleTagValue -> {
+			String[] tagValue = splitTagValue(roleTagValue);
+			String bucketName = tagValue[0];
+			String region = tagValue[1];
+			String policy = this.s3Service.buildTrustPolicyForBucket(bucketName);
+			return new PolicyAndResult<>(policy, new String[] { bucketName, region });
+		});
+		Role role = roleAndResult.role();
+		String bucketName = roleAndResult.result()[0];
+		String region = roleAndResult.result()[1];
 		return Map.of("role_arn", role.arn(), "role_name", role.roleName(), "bucket_name", bucketName, "region",
 				region);
 	}
 
 	@Override
 	public void unbind(String instanceId, String bindingId, String serviceId, String planId) {
-		String roleTagKey = AwsService.S3.roleTagKey(instanceId);
-		this.iamService.findRoleByTags(tagMap -> tagMap.containsKey(roleTagKey)).ifPresent(role -> {
-			String policyName = AwsService.S3.policyName(instanceId, bindingId);
-			this.iamService.detachInlinePolicyFromRole(role.roleName(), policyName);
+		super.detachInlinePolicy(instanceId, bindingId, () -> {
+
+		});
+	}
+
+	@Override
+	public void deprovisioning(String instanceId, String serviceId, String planId) {
+		super.removeRoleTag(instanceId, roleTagValue -> {
+			if (StringUtils.hasText(roleTagValue)) {
+				String bucketName = splitTagValue(roleTagValue)[0];
+				this.s3Service.deleteBucket(bucketName);
+			}
 		});
 	}
 
