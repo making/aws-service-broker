@@ -23,9 +23,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Component
 public class DynamodbServiceBrokerService implements ServiceBrokerService {
-
-	public static final String ROLE_TAG_KEY_PREFIX = "dynamodb_";
-
 	private final DynamodbService dynamodbService;
 
 	private final IamService iamService;
@@ -42,10 +39,6 @@ public class DynamodbServiceBrokerService implements ServiceBrokerService {
 		this.objectMapper = objectMapper;
 	}
 
-	String roleTagKey(String instanceId) {
-		return ROLE_TAG_KEY_PREFIX + instanceId;
-	}
-
 	@Override
 	public Map<String, Object> provisioning(String instanceId, ServiceProvisioningRequest request) {
 		ProvisioningParameters params = request.bindParametersTo(ProvisioningParameters.class, this.objectMapper);
@@ -56,7 +49,7 @@ public class DynamodbServiceBrokerService implements ServiceBrokerService {
 		this.iamService.findRoleByRoleName(roleName)
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
 					"The given role (role_name=%s) is not found".formatted(roleName)));
-		String roleTagKey = this.roleTagKey(instanceId);
+		String roleTagKey = AwsService.DYNAMODB.roleTagKey(instanceId);
 		String tablePrefix = this.dynamodbService.defaultTablePrefix(instanceId);
 		this.iamService.addRoleTags(roleName, List.of(Tag.builder().key(roleTagKey).value(tablePrefix).build()));
 		return Map.of();
@@ -65,7 +58,7 @@ public class DynamodbServiceBrokerService implements ServiceBrokerService {
 	@Override
 	public Map<String, Object> bind(String instanceId, String bindingId, ServiceBindRequest request) {
 		String policyName = AwsService.DYNAMODB.policyName(instanceId, bindingId);
-		String roleTagKey = this.roleTagKey(instanceId);
+		String roleTagKey = AwsService.DYNAMODB.roleTagKey(instanceId);
 		Role role = this.iamService.findRoleByTags(tagMap -> tagMap.containsKey(roleTagKey))
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.GONE,
 					"Role tag (key: %s) is missing".formatted(roleTagKey)));
@@ -85,14 +78,14 @@ public class DynamodbServiceBrokerService implements ServiceBrokerService {
 	@Override
 	public void unbind(String instanceId, String bindingId, String serviceId, String planId) {
 		String policyName = AwsService.DYNAMODB.policyName(instanceId, bindingId);
-		String roleTagKey = this.roleTagKey(instanceId);
+		String roleTagKey = AwsService.DYNAMODB.roleTagKey(instanceId);
 		this.iamService.findRoleByTags(tagMap -> tagMap.containsKey(roleTagKey))
 			.ifPresent(role -> this.iamService.detachInlinePolicyFromRole(role.roleName(), policyName));
 	}
 
 	@Override
 	public void deprovisioning(String instanceId, String serviceId, String planId) {
-		String roleTagKey = this.roleTagKey(instanceId);
+		String roleTagKey = AwsService.DYNAMODB.roleTagKey(instanceId);
 		this.iamService.findRoleByTags(tagMap -> tagMap.containsKey(roleTagKey))
 			.ifPresent(role -> this.iamService.removeRoleTags(role.roleName(), List.of(roleTagKey)));
 	}

@@ -8,7 +8,6 @@ import com.example.awsservicebroker.aws.dynamodb.DynamodbService;
 import com.example.awsservicebroker.aws.iam.IamService;
 import com.example.awsservicebroker.config.TestConfig;
 import com.example.awsservicebroker.servicebroker.AwsService;
-import com.example.awsservicebroker.servicebroker.service.DynamodbServiceBrokerService;
 import com.example.awsservicebroker.utils.StringUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.AfterEach;
@@ -120,7 +119,7 @@ public class DynamodbServiceInstanceControllerTest {
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
 		List<Tag> tags = this.iamClient.listRoleTags(builder -> builder.roleName(role.roleName())).tags();
 		assertThat(tags).contains(Tag.builder()
-			.key(DynamodbServiceBrokerService.ROLE_TAG_KEY_PREFIX + instanceId)
+			.key(AwsService.DYNAMODB.roleTagKey(instanceId))
 			.value("cf-" + StringUtils.removeHyphen(instanceId) + "-")
 			.build());
 	}
@@ -234,7 +233,7 @@ public class DynamodbServiceInstanceControllerTest {
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 		List<Tag> tags = this.iamClient.listRoleTags(builder -> builder.roleName(role.roleName())).tags();
 		assertThat(tags).doesNotContain(Tag.builder()
-			.key(DynamodbServiceBrokerService.ROLE_TAG_KEY_PREFIX + instanceId)
+			.key(AwsService.DYNAMODB.roleTagKey(instanceId))
 			.value("cf-" + StringUtils.removeHyphen(instanceId) + "-")
 			.build());
 	}

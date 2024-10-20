@@ -42,6 +42,10 @@ public enum AwsService {
 		return null;
 	}
 
+	public String roleTagKey(String instanceId) {
+		return name().toLowerCase(Locale.ENGLISH) + "-" + StringUtils.removeHyphen(instanceId);
+	}
+
 	public String policyName(String instanceId, String bindingId) {
 		return name().toLowerCase(Locale.ENGLISH) + "-" + StringUtils.removeHyphen(instanceId) + "-" + StringUtils.removeHyphen(bindingId);
 	}
