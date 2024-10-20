@@ -23,6 +23,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Component
 public class DynamodbServiceBrokerService implements ServiceBrokerService {
+
 	private final DynamodbService dynamodbService;
 
 	private final IamService iamService;

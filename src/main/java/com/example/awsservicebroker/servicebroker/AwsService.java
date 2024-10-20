@@ -47,7 +47,8 @@ public enum AwsService {
 	}
 
 	public String policyName(String instanceId, String bindingId) {
-		return name().toLowerCase(Locale.ENGLISH) + "-" + StringUtils.removeHyphen(instanceId) + "-" + StringUtils.removeHyphen(bindingId);
+		return name().toLowerCase(Locale.ENGLISH) + "-" + StringUtils.removeHyphen(instanceId) + "-"
+				+ StringUtils.removeHyphen(bindingId);
 	}
 
 	public String getServiceBrokerServiceBeanName() {
