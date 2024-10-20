@@ -49,7 +49,7 @@ public class S3Service {
 		return this.s3Props.bucketNamePrefix() + StringUtils.removeHyphen(instanceId);
 	}
 
-	public String createBucket(Instance instance, @Nullable String bucketName, @Nullable String region) {
+	public CreateBucketResult createBucket(Instance instance, @Nullable String bucketName, @Nullable String region) {
 		String bucketNameToCreate = bucketName == null ? this.defaultBucketName(instance.instanceId()) : bucketName;
 		String regionToCreate = region == null ? this.region.id() : region;
 		logger.info("Creating bucket bucketName={} region={}", bucketNameToCreate, regionToCreate);
@@ -59,7 +59,10 @@ public class S3Service {
 		logger.info("Created bucket bucketName={} location={}", bucketNameToCreate, response.location());
 		this.putBucketTags(bucketNameToCreate,
 				instance.toTags((key, value) -> Tag.builder().key(key).value(value).build()), false);
-		return bucketNameToCreate;
+		return new CreateBucketResult(bucketNameToCreate, regionToCreate);
+	}
+
+	public record CreateBucketResult(String bucketName, String region) {
 	}
 
 	public List<Tag> listBucketTags(String bucketName) {
@@ -127,6 +130,7 @@ public class S3Service {
 		this.findBucketByInstanceId(instanceId).ifPresent(bucket -> this.deleteBucket(bucket.name()));
 	}
 
+	@Deprecated
 	public Optional<Bucket> findBucketByInstanceId(String instanceId) {
 		ListBucketsResponse response = this.s3Client.listBuckets();
 		return response.buckets().stream().filter(bucket -> {

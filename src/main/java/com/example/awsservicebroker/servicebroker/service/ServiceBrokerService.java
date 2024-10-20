@@ -27,6 +27,14 @@ public interface ServiceBrokerService {
 			.build();
 	}
 
+	static String joinTagValue(String... values) {
+		return String.join("|", values);
+	}
+
+	static String[] splitTagValue(String tagValue) {
+		return tagValue.split("\\|");
+	}
+
 	default Map<String, Object> provisioning(String instanceId, ServiceProvisioningRequest request) {
 		return Map.of();
 	}

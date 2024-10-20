@@ -17,9 +17,10 @@ import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.regions.providers.AwsRegionProvider;
 import software.amazon.awssdk.services.iam.IamClient;
 import software.amazon.awssdk.services.iam.model.Role;
+import software.amazon.awssdk.services.iam.model.Tag;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.Bucket;
 import software.amazon.awssdk.services.s3.model.BucketLocationConstraint;
+import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -32,6 +33,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.client.RestClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
 
 @SpringBootTest(webEnvironment = RANDOM_PORT,
@@ -90,11 +92,6 @@ class S3ServiceInstanceControllerTest {
 	}
 
 	@Test
-	void cleanUp() {
-
-	}
-
-	@Test
 	void provisioning_with_role_name() {
 		Role role = this.iamService.createIamRole(Instance.builder()
 			.instanceId(UUID.randomUUID().toString())
@@ -104,7 +101,9 @@ class S3ServiceInstanceControllerTest {
 			.spaceGuid(spaceGuid)
 			.spaceName(spaceName)
 			.build());
-		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isEmpty();
+		String bucketName = this.s3Service.defaultBucketName(instanceId);
+		assertThatThrownBy(() -> this.s3Client.getBucketLocation(builder -> builder.bucket(bucketName)))
+			.isInstanceOf(NoSuchBucketException.class);
 		ResponseEntity<JsonNode> response = this.restClient.put()
 			.uri("/v2/service_instances/{instanceId}", instanceId)
 			.contentType(MediaType.APPLICATION_JSON)
@@ -134,17 +133,12 @@ class S3ServiceInstanceControllerTest {
 			.retrieve()
 			.toEntity(JsonNode.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-		Optional<Bucket> bucketOptional = this.s3Service.findBucketByInstanceId(instanceId);
-		assertThat(bucketOptional).isNotEmpty();
-		Bucket bucket = bucketOptional.get();
-		assertThat(bucket.name()).isEqualTo(this.s3Service.defaultBucketName(instanceId));
-		String policyName = "s3-" + bucket.name();
-		List<String> policyNames = this.iamClient.listRolePolicies(builder -> builder.roleName(role.roleName()))
-			.policyNames();
-		assertThat(policyNames).contains(policyName);
-		BucketLocationConstraint location = this.s3Client.getBucketLocation(builder -> builder.bucket(bucket.name()))
-			.locationConstraint();
-		assertThat(location).isEqualTo(BucketLocationConstraint.fromValue(this.regionProvider.getRegion().id()));
+		List<Tag> tags = this.iamClient.listRoleTags(builder -> builder.roleName(role.roleName())).tags();
+		assertThat(tags).contains(Tag.builder()
+			.key(AwsService.S3.roleTagKey(instanceId))
+			.value(bucketName + "|" + this.regionProvider.getRegion().id())
+			.build());
+		assertThat(this.s3Client.getBucketLocation(builder -> builder.bucket(bucketName))).isNotNull();
 	}
 
 	@Test
@@ -157,8 +151,9 @@ class S3ServiceInstanceControllerTest {
 			.spaceGuid(spaceGuid)
 			.spaceName(spaceName)
 			.build());
-		String bucketName = "test-" + UUID.randomUUID().toString();
-		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isEmpty();
+		String bucketName = "test-" + UUID.randomUUID();
+		assertThatThrownBy(() -> this.s3Client.getBucketLocation(builder -> builder.bucket(bucketName)))
+			.isInstanceOf(NoSuchBucketException.class);
 		ResponseEntity<JsonNode> response = this.restClient.put()
 			.uri("/v2/service_instances/{instanceId}", instanceId)
 			.contentType(MediaType.APPLICATION_JSON)
@@ -189,14 +184,12 @@ class S3ServiceInstanceControllerTest {
 			.retrieve()
 			.toEntity(JsonNode.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-		Optional<Bucket> bucketOptional = this.s3Service.findBucketByInstanceId(instanceId);
-		assertThat(bucketOptional).isNotEmpty();
-		Bucket bucket = bucketOptional.get();
-		assertThat(bucket.name()).isEqualTo(bucketName);
-		String policyName = "s3-" + bucket.name();
-		List<String> policyNames = this.iamClient.listRolePolicies(builder -> builder.roleName(role.roleName()))
-			.policyNames();
-		assertThat(policyNames).contains(policyName);
+		List<Tag> tags = this.iamClient.listRoleTags(builder -> builder.roleName(role.roleName())).tags();
+		assertThat(tags).contains(Tag.builder()
+			.key(AwsService.S3.roleTagKey(instanceId))
+			.value(bucketName + "|" + this.regionProvider.getRegion().id())
+			.build());
+		assertThat(this.s3Client.getBucketLocation(builder -> builder.bucket(bucketName))).isNotNull();
 	}
 
 	@Test
@@ -210,7 +203,9 @@ class S3ServiceInstanceControllerTest {
 			.spaceName(spaceName)
 			.build());
 		boolean enableVersioning = true;
-		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isEmpty();
+		String bucketName = this.s3Service.defaultBucketName(instanceId);
+		assertThatThrownBy(() -> this.s3Client.getBucketLocation(builder -> builder.bucket(bucketName)))
+			.isInstanceOf(NoSuchBucketException.class);
 		ResponseEntity<JsonNode> response = this.restClient.put()
 			.uri("/v2/service_instances/{instanceId}", instanceId)
 			.contentType(MediaType.APPLICATION_JSON)
@@ -241,14 +236,12 @@ class S3ServiceInstanceControllerTest {
 			.retrieve()
 			.toEntity(JsonNode.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-		Optional<Bucket> bucketOptional = this.s3Service.findBucketByInstanceId(instanceId);
-		assertThat(bucketOptional).isNotEmpty();
-		Bucket bucket = bucketOptional.get();
-		assertThat(bucket.name()).isEqualTo(this.s3Service.defaultBucketName(instanceId));
-		String policyName = "s3-" + bucket.name();
-		List<String> policyNames = this.iamClient.listRolePolicies(builder -> builder.roleName(role.roleName()))
-			.policyNames();
-		assertThat(policyNames).contains(policyName);
+		List<Tag> tags = this.iamClient.listRoleTags(builder -> builder.roleName(role.roleName())).tags();
+		assertThat(tags).contains(Tag.builder()
+			.key(AwsService.S3.roleTagKey(instanceId))
+			.value(bucketName + "|" + this.regionProvider.getRegion().id())
+			.build());
+		assertThat(this.s3Client.getBucketLocation(builder -> builder.bucket(bucketName))).isNotNull();
 	}
 
 	@Test
@@ -261,7 +254,9 @@ class S3ServiceInstanceControllerTest {
 			.spaceGuid(spaceGuid)
 			.spaceName(spaceName)
 			.build());
-		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isEmpty();
+		String bucketName = this.s3Service.defaultBucketName(instanceId);
+		assertThatThrownBy(() -> this.s3Client.getBucketLocation(builder -> builder.bucket(bucketName)))
+			.isInstanceOf(NoSuchBucketException.class);
 		BucketLocationConstraint region = BucketLocationConstraint.US_WEST_2;
 		ResponseEntity<JsonNode> response = this.restClient.put()
 			.uri("/v2/service_instances/{instanceId}", instanceId)
@@ -293,17 +288,10 @@ class S3ServiceInstanceControllerTest {
 			.retrieve()
 			.toEntity(JsonNode.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-		Optional<Bucket> bucketOptional = this.s3Service.findBucketByInstanceId(instanceId);
-		assertThat(bucketOptional).isNotEmpty();
-		Bucket bucket = bucketOptional.get();
-		assertThat(bucket.name()).isEqualTo(this.s3Service.defaultBucketName(instanceId));
-		String policyName = "s3-" + bucket.name();
-		List<String> policyNames = this.iamClient.listRolePolicies(builder -> builder.roleName(role.roleName()))
-			.policyNames();
-		assertThat(policyNames).contains(policyName);
-		BucketLocationConstraint location = this.s3Client.getBucketLocation(builder -> builder.bucket(bucket.name()))
-			.locationConstraint();
-		assertThat(location).isEqualTo(region);
+		assertThat(this.s3Client.getBucketLocation(builder -> builder.bucket(bucketName))).isNotNull();
+		List<Tag> tags = this.iamClient.listRoleTags(builder -> builder.roleName(role.roleName())).tags();
+		assertThat(tags)
+			.contains(Tag.builder().key(AwsService.S3.roleTagKey(instanceId)).value(bucketName + "|" + region).build());
 	}
 
 	@Test
@@ -336,16 +324,18 @@ class S3ServiceInstanceControllerTest {
 					instanceName, "not-exists", organizationGuid, spaceGuid))
 			.retrieve()
 			.toEntity(JsonNode.class);
-		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.PRECONDITION_FAILED);
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
 		JsonNode body = response.getBody();
 		assertThat(body).isNotNull();
 		assertThat(body.has("message")).isTrue();
-		assertThat(body.get("message").asText()).isEqualTo("Role with name not-exists does not exist.");
+		assertThat(body.get("message").asText()).isEqualTo("The given role (role_name=not-exists) is not found");
 	}
 
 	@Test
 	void provisioning_without_role_name() {
-		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isEmpty();
+		String bucketName = this.s3Service.defaultBucketName(instanceId);
+		assertThatThrownBy(() -> this.s3Client.getBucketLocation(builder -> builder.bucket(bucketName)))
+			.isInstanceOf(NoSuchBucketException.class);
 		ResponseEntity<JsonNode> response = this.restClient.put()
 			.uri("/v2/service_instances/{instanceId}", instanceId)
 			.contentType(MediaType.APPLICATION_JSON)
@@ -371,8 +361,7 @@ class S3ServiceInstanceControllerTest {
 					instanceName, organizationGuid, spaceGuid))
 			.retrieve()
 			.toEntity(JsonNode.class);
-		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isNotEmpty();
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
 	}
 
 	@Test
@@ -449,8 +438,8 @@ class S3ServiceInstanceControllerTest {
 					instanceName, role.roleName(), organizationGuid, spaceGuid))
 			.retrieve()
 			.toEntity(JsonNode.class);
-		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isNotEmpty();
 		String bucketName = this.s3Service.defaultBucketName(instanceId);
+		assertThat(this.s3Client.getBucketLocation(builder -> builder.bucket(bucketName))).isNotNull();
 		for (int i = 0; i < 3; i++) {
 			this.s3Service.putObject(bucketName, "test" + i, "This is test" + i);
 		}
@@ -460,11 +449,13 @@ class S3ServiceInstanceControllerTest {
 			.retrieve()
 			.toEntity(JsonNode.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isEmpty();
-		String policyName = "s3-" + bucketName;
-		List<String> policyNames = this.iamClient.listRolePolicies(builder -> builder.roleName(role.roleName()))
-			.policyNames();
-		assertThat(policyNames).doesNotContain(policyName);
+		List<Tag> tags = this.iamClient.listRoleTags(builder -> builder.roleName(role.roleName())).tags();
+		assertThat(tags).doesNotContain(Tag.builder()
+			.key(AwsService.S3.roleTagKey(instanceId))
+			.value(bucketName + "|" + this.regionProvider.getRegion().id())
+			.build());
+		assertThatThrownBy(() -> this.s3Client.getBucketLocation(builder -> builder.bucket(bucketName)))
+			.isInstanceOf(NoSuchBucketException.class);
 	}
 
 	@Test
@@ -507,8 +498,8 @@ class S3ServiceInstanceControllerTest {
 					instanceName, role.roleName(), enableVersioning, organizationGuid, spaceGuid))
 			.retrieve()
 			.toEntity(JsonNode.class);
-		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isNotEmpty();
 		String bucketName = this.s3Service.defaultBucketName(instanceId);
+		assertThat(this.s3Client.getBucketLocation(builder -> builder.bucket(bucketName))).isNotNull();
 		for (int i = 0; i < 3; i++) {
 			this.s3Service.putObject(bucketName, "test" + i, "This is test" + i);
 		}
@@ -523,113 +514,13 @@ class S3ServiceInstanceControllerTest {
 			.retrieve()
 			.toEntity(JsonNode.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isEmpty();
-		String policyName = "s3-" + bucketName;
-		List<String> policyNames = this.iamClient.listRolePolicies(builder -> builder.roleName(role.roleName()))
-			.policyNames();
-		assertThat(policyNames).doesNotContain(policyName);
-	}
-
-	@Test
-	void deprovisioning_without_role() {
-		this.restClient.put()
-			.uri("/v2/service_instances/{instanceId}", instanceId)
-			.contentType(MediaType.APPLICATION_JSON)
-			.body("""
-					{
-					  "service_id": "%s",
-					  "plan_id": "%s",
-					  "context": {
-					    "platform": "cloudfoundry",
-					    "organization_guid": "%s",
-					    "space_guid": "%s",
-					    "organization_name": "%s",
-					    "space_name": "%s",
-					    "instance_name": "%s"
-					  },
-					  "organization_guid": "%s",
-					  "space_guid": "%s",
-					  "maintenance_info": {
-					    "version": "2.1.1+abcdef"
-					  }
-					}
-					""".formatted(serviceId, planId, organizationGuid, spaceGuid, organizationName, spaceName,
-					instanceName, organizationGuid, spaceGuid))
-			.retrieve()
-			.toEntity(JsonNode.class);
-		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isNotEmpty();
-		ResponseEntity<JsonNode> response = this.restClient.delete()
-			.uri("/v2/service_instances/{instanceId}?service_id={serviceId}&plan_id={planId}", instanceId, serviceId,
-					planId)
-			.retrieve()
-			.toEntity(JsonNode.class);
-		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isEmpty();
-	}
-
-	@Test
-	void deprovisioning_with_role_associated_binding_phase() {
-		Role role = this.iamService.createIamRole(Instance.builder()
-			.instanceId(UUID.randomUUID().toString())
-			.instanceName(instanceName)
-			.orgGuid(organizationGuid)
-			.orgName(organizationName)
-			.spaceGuid(spaceGuid)
-			.spaceName(spaceName)
+		List<Tag> tags = this.iamClient.listRoleTags(builder -> builder.roleName(role.roleName())).tags();
+		assertThat(tags).doesNotContain(Tag.builder()
+			.key(AwsService.S3.roleTagKey(instanceId))
+			.value(bucketName + "|" + this.regionProvider.getRegion().id())
 			.build());
-		this.restClient.put()
-			.uri("/v2/service_instances/{instanceId}", instanceId)
-			.contentType(MediaType.APPLICATION_JSON)
-			.body("""
-					{
-					  "service_id": "%s",
-					  "plan_id": "%s",
-					  "context": {
-					    "platform": "cloudfoundry",
-					    "organization_guid": "%s",
-					    "space_guid": "%s",
-					    "organization_name": "%s",
-					    "space_name": "%s",
-					    "instance_name": "%s"
-					  },
-					  "organization_guid": "%s",
-					  "space_guid": "%s",
-					  "maintenance_info": {
-					    "version": "2.1.1+abcdef"
-					  }
-					}
-					""".formatted(serviceId, planId, organizationGuid, spaceGuid, organizationName, spaceName,
-					instanceName, organizationGuid, spaceGuid))
-			.retrieve()
-			.toEntity(JsonNode.class);
-		this.restClient.put()
-			.uri("/v2/service_instances/{instanceId}/service_bindings/{bindingId}", instanceId, bindingId)
-			.contentType(MediaType.APPLICATION_JSON)
-			.body("""
-					{
-					  "context": {
-					    "platform": "cloudfoundry"
-					  },
-					  "service_id": "%s",
-					  "plan_id": "%s",
-					  "bind_resource": {
-					    "app_guid": "%s"
-					  },
-					  "parameters": {
-					    "role_name": "%s"
-					  }
-					}
-					""".formatted(serviceId, planId, appGuid, role.roleName()))
-			.retrieve()
-			.toEntity(JsonNode.class);
-		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isNotEmpty();
-		ResponseEntity<JsonNode> response = this.restClient.delete()
-			.uri("/v2/service_instances/{instanceId}?service_id={serviceId}&plan_id={planId}", instanceId, serviceId,
-					planId)
-			.retrieve()
-			.toEntity(JsonNode.class);
-		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isEmpty();
+		assertThatThrownBy(() -> this.s3Client.getBucketLocation(builder -> builder.bucket(bucketName)))
+			.isInstanceOf(NoSuchBucketException.class);
 	}
 
 	@Test
@@ -671,8 +562,8 @@ class S3ServiceInstanceControllerTest {
 					instanceName, role.roleName(), organizationGuid, spaceGuid))
 			.retrieve()
 			.toEntity(JsonNode.class);
-		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isNotEmpty();
 		String bucketName = this.s3Service.defaultBucketName(instanceId);
+		assertThat(this.s3Client.getBucketLocation(builder -> builder.bucket(bucketName))).isNotNull();
 		for (int i = 0; i < 3; i++) {
 			this.s3Service.putObject(bucketName, "test" + i, "This is test" + i);
 		}
@@ -720,7 +611,13 @@ class S3ServiceInstanceControllerTest {
 			.retrieve()
 			.toEntity(JsonNode.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isEmpty();
+		List<Tag> tags = this.iamClient.listRoleTags(builder -> builder.roleName(role.roleName())).tags();
+		assertThat(tags).doesNotContain(Tag.builder()
+			.key(AwsService.S3.roleTagKey(instanceId))
+			.value(bucketName + "|" + this.regionProvider.getRegion().id())
+			.build());
+		assertThatThrownBy(() -> this.s3Client.getBucketLocation(builder -> builder.bucket(bucketName)))
+			.isInstanceOf(NoSuchBucketException.class);
 	}
 
 	@Test
@@ -763,8 +660,8 @@ class S3ServiceInstanceControllerTest {
 					instanceName, role.roleName(), enableVersioning, organizationGuid, spaceGuid))
 			.retrieve()
 			.toEntity(JsonNode.class);
-		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isNotEmpty();
 		String bucketName = this.s3Service.defaultBucketName(instanceId);
+		assertThat(this.s3Client.getBucketLocation(builder -> builder.bucket(bucketName))).isNotNull();
 		for (int i = 0; i < 3; i++) {
 			this.s3Service.putObject(bucketName, "test" + i, "This is test" + i);
 		}
@@ -812,7 +709,13 @@ class S3ServiceInstanceControllerTest {
 			.retrieve()
 			.toEntity(JsonNode.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-		assertThat(this.s3Service.findBucketByInstanceId(instanceId)).isEmpty();
+		List<Tag> tags = this.iamClient.listRoleTags(builder -> builder.roleName(role.roleName())).tags();
+		assertThat(tags).doesNotContain(Tag.builder()
+			.key(AwsService.S3.roleTagKey(instanceId))
+			.value(bucketName + "|" + this.regionProvider.getRegion().id())
+			.build());
+		assertThatThrownBy(() -> this.s3Client.getBucketLocation(builder -> builder.bucket(bucketName)))
+			.isInstanceOf(NoSuchBucketException.class);
 	}
 
 }
