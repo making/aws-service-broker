@@ -19,6 +19,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
+import static com.example.awsservicebroker.servicebroker.service.ServiceBrokerService.credentialsWithRole;
+
 @Component
 public class DynamodbServiceBrokerService extends AbstractServiceBrokerService {
 
@@ -60,8 +62,7 @@ public class DynamodbServiceBrokerService extends AbstractServiceBrokerService {
 		});
 		Role role = roleAndResult.role();
 		String tablePrefix = roleAndResult.result();
-		return Map.of("role_arn", role.arn(), "role_name", role.roleName(), "prefix", tablePrefix, "region",
-				region.id());
+		return credentialsWithRole(role, Map.of("prefix", tablePrefix, "region", region.id()));
 	}
 
 	@Override

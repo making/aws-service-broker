@@ -12,6 +12,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
+import static com.example.awsservicebroker.servicebroker.service.ServiceBrokerService.credentialsWithRole;
+
 @Component
 public class IamRoleServiceBrokerService implements ServiceBrokerService {
 
@@ -41,7 +43,7 @@ public class IamRoleServiceBrokerService implements ServiceBrokerService {
 	public Map<String, Object> bind(String instanceId, String bindingId, ServiceBindRequest request) {
 		Role role = this.iamService.findRoleByInstanceId(instanceId)
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Instance not found"));
-		return Map.of("role_name", role.roleName(), "role_arn", role.arn());
+		return credentialsWithRole(role, Map.of());
 	}
 
 }

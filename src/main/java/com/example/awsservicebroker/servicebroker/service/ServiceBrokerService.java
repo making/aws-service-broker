@@ -1,5 +1,7 @@
 package com.example.awsservicebroker.servicebroker.service;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import com.example.awsservicebroker.aws.Instance;
@@ -7,6 +9,7 @@ import com.example.awsservicebroker.servicebroker.Context;
 import com.example.awsservicebroker.servicebroker.ServiceBindRequest;
 import com.example.awsservicebroker.servicebroker.ServiceProvisioningRequest;
 import com.example.awsservicebroker.servicebroker.ServiceUpdateRequest;
+import software.amazon.awssdk.services.iam.model.Role;
 
 public interface ServiceBrokerService {
 
@@ -53,6 +56,14 @@ public interface ServiceBrokerService {
 
 	default void unbind(String instanceId, String bindingId, String serviceId, String planId) {
 
+	}
+
+	static Map<String, Object> credentialsWithRole(Role role, Map<String, Object> additionalCredentials) {
+		Map<String, Object> credentials = new LinkedHashMap<>();
+		credentials.put("role_name", role.roleName());
+		credentials.put("role_arn", role.arn());
+		credentials.putAll(additionalCredentials);
+		return Collections.unmodifiableMap(credentials);
 	}
 
 }

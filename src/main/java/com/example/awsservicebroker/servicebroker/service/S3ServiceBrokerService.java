@@ -19,6 +19,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
+import static com.example.awsservicebroker.servicebroker.service.ServiceBrokerService.credentialsWithRole;
 import static com.example.awsservicebroker.servicebroker.service.ServiceBrokerService.joinTagValue;
 import static com.example.awsservicebroker.servicebroker.service.ServiceBrokerService.splitTagValue;
 
@@ -89,8 +90,7 @@ public class S3ServiceBrokerService extends AbstractServiceBrokerService {
 		Role role = roleAndResult.role();
 		String bucketName = roleAndResult.result()[0];
 		String region = roleAndResult.result()[1];
-		return Map.of("role_arn", role.arn(), "role_name", role.roleName(), "bucket_name", bucketName, "region",
-				region);
+		return credentialsWithRole(role, Map.of("bucket_name", bucketName, "region", region));
 	}
 
 	@Override
