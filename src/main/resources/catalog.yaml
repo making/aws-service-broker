@@ -76,14 +76,15 @@ services:
     supportUrl: https://github.com/making/aws-service-broker
   plans:
   - id: d3094f5c-dc91-4617-9bd6-e6b52f920148
-    name: iam-only
+    name: free
     description: Create and attach IAM Policy to the provided IAM Role
     free: true
     metadata:
-      displayName: IAM Only
+      displayName: Free
       bullets:
       - Create and attach IAM Policy to the provided IAM Role
       - No DynamoDB table is created by this service itself
+      - All table created by this role will be deleted when this service instance is deprovisioned
       costs:
       - amount:
           usd: 0

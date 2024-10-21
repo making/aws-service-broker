@@ -1,0 +1,18 @@
+applications:
+- name: demo-dynamodb
+  buildpacks:
+  - https://github.com/making/cits-sidecar-buildpack.git
+  - java_buildpack_offline
+  memory: 768m
+  path: ./target/demo-dynamodb-0.0.1-SNAPSHOT.jar
+  env:
+    JBP_CONFIG_OPEN_JDK_JRE: '{jre: {version: 17.+}}'
+    SPRING_CLOUD_AWS_CREDENTIALS_STS_WEBIDENTITYTOKENFILE: /tmp/token
+    SPRING_CLOUD_AWS_CREDENTIALS_STS_ROLEARN: ${vcap.services.demo-dynamodb.credentials.role_arn}
+    SPRING_CLOUD_AWS_CREDENTIALS_STS_ROLESESSIONNAME: ${vcap.application.application_name}
+    SPRING_CLOUD_AWS_CREDENTIALS_STS_ASYNCCREDENTIALSUPDATE: 'true'
+    SPRING_CLOUD_AWS_REGION_STATIC: ${vcap.services.demo-dynamodb.credentials.region}
+    SPRING_CLOUD_AWS_DYNAMODB_TABLEPREFIX: ${vcap.services.demo-dynamodb.credentials.prefix}
+    CITS_URL: https://((CITS_DOMAIN))
+  services:
+  - demo-dynamodb

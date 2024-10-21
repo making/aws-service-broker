@@ -7,7 +7,7 @@
 ### Create IAM Role for the service broker
 
 ```
-CITS_DOMAIN=...
+CITS_DOMAIN=cits.apps.dhaka.cf-app.com (for example)
 OIDC_PROVIDER_ARN=$(aws iam list-open-id-connect-providers --query "OpenIDConnectProviderList[?ends_with(Arn, '$CITS_DOMAIN')].Arn" --output text)
 
 # current org/space name
@@ -56,13 +56,16 @@ ROLE_ARN=$(aws iam get-role --role-name aws-service-broker --query 'Role.Arn' --
 ./mvnw clean package
 ```
 
+```yaml
+cat <<EOF > vars.yaml
+ROLE_ARN: ${ROLE_ARN}
+CITS_DOMAIN: ${CITS_DOMAIN}
+OIDC_PROVIDER_ARN: ${OIDC_PROVIDER_ARN}
+EOF
 ```
-sed \
-  -e "s|CHANGE_ME_ROLE_ARN|${ROLE_ARN}|" \
-  -e "s|CHANGE_ME_CITS_DOMAIN|${CITS_DOMAIN}|" \
-  -e "s|CHANGE_ME_OIDC_PROVIDER_ARN|${OIDC_PROVIDER_ARN}|" manifest-template.yml > manifest.yml
 
-cf push
+```
+cf push --vars-file vars.yaml
 ```
 
 ## How to register the service broker
@@ -70,12 +73,63 @@ cf push
 ```
 cf create-service-broker aws-service-broker admin password <url>
 cf enable-service-access iam-role
+cf enable-service-access s3
+cf enable-service-access dynamodb
 ```
 
 ## How to create the service instance / service binding
+
+### Create a IAM Role
 
 ```
 cf create-service iam-role free demo
 cf create-service-key demo test
 cf service-key demo test
+```
+
+```json
+{
+  "credentials": {
+    "role_arn": "arn:aws:iam::<ACCOUNT_ID>:role/cf-role/<ROLE_NAME>",
+    "role_name": "<ROLE_NAME>"
+  }
+}
+```
+
+### Create a S3 bucket
+
+```
+cf create-service s3 free my-bucket -c '{"role_name": "<ROLE_NAME>"}'
+cf create-service-key my-bucket test
+cf service-key my-bucket test
+```
+
+```json
+{
+  "credentials": {
+    "bucket_name": "cf-ff37fff3a7dc42b4853580de4d4d351f",
+    "region": "ap-northeast-1",
+    "role_arn": "arn:aws:iam::<ACCOUNT_ID>:role/cf-role/<ROLE_NAME>",
+    "role_name": "<ROLE_NAME>"
+  }
+}
+```
+
+### Create IAM Policy for DynamoDB
+
+```
+cf create-service dynamodb free my-dynamo -c '{"role_name": "<ROLE_NAME>"}'
+cf create-service-key my-dynamo test
+cf service-key my-dynamo test
+```
+
+```json
+{
+  "credentials": {
+    "prefix": "cf-2675c78c666e4a648d90cef684205533",
+    "region": "ap-northeast-1",
+    "role_arn": "arn:aws:iam::<ACCOUNT_ID>:role/cf-role/<ROLE_NAME>",
+    "role_name": "<ROLE_NAME>"
+  }
+}
 ```

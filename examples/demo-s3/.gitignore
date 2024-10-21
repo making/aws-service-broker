@@ -31,7 +31,3 @@ build/
 
 ### VS Code ###
 .vscode/
-cf-dhaka
-cf-ikam
-application-default.properties
-vars.yaml
