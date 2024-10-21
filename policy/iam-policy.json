@@ -14,7 +14,7 @@
         "iam:DeleteRole",
         "iam:TagRole",
         "iam:ListRoleTags",
-        "iam:UntagRole"z
+        "iam:UntagRole"
       ],
       "Resource": "arn:aws:iam::CHANGE_ME:role/cf-role/*"
     },
@@ -46,6 +46,21 @@
         "s3:DeleteObjectVersion"
       ],
       "Resource": "arn:aws:s3:::cf-*/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:ListTables"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:DeleteTable",
+        "dynamodb:DescribeTable"
+      ],
+      "Resource": "arn:aws:dynamodb:*:CHANGE_ME:table/*"
     }
   ]
 }
