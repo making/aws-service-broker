@@ -74,9 +74,7 @@ public class DynamodbServiceBrokerService extends AbstractServiceBrokerService {
 
 	@Override
 	public void deprovisioning(String instanceId, String serviceId, String planId) {
-		super.removeRoleTag(instanceId, roleTagValue -> {
-
-		});
+		super.removeRoleTag(instanceId, this.dynamodbService::deleteTableWithPrefix);
 	}
 
 	public record ProvisioningParameters(@Nullable @JsonProperty("role_name") String roleName) {

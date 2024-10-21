@@ -13,6 +13,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
+import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.KeyType;
+import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 import software.amazon.awssdk.services.iam.IamClient;
 import software.amazon.awssdk.services.iam.model.Role;
 import software.amazon.awssdk.services.iam.model.Tag;
@@ -47,6 +54,12 @@ public class DynamodbServiceInstanceControllerTest {
 
 	@Autowired
 	DynamodbService dynamodbService;
+
+	@Autowired
+	DynamoDbClient dynamoDbClient;
+
+	@Autowired
+	DynamoDbEnhancedClient dynamoDbEnhancedClient;
 
 	String bindingId = "8f0b2a93-ca8b-4850-a12a-39a82a17148b";
 
@@ -225,6 +238,12 @@ public class DynamodbServiceInstanceControllerTest {
 					instanceName, role.roleName(), organizationGuid, spaceGuid))
 			.retrieve()
 			.toEntity(JsonNode.class);
+		String tablePrefix = "cf-" + StringUtils.removeHyphen(instanceId) + "-";
+		this.dynamoDbEnhancedClient.table(tablePrefix + "movie1", TableSchema.fromBean(Movie.class)).createTable();
+		this.dynamoDbEnhancedClient.table(tablePrefix + "movie2", TableSchema.fromBean(Movie.class)).createTable();
+		List<String> tableNames = this.dynamoDbClient.listTables().tableNames();
+		assertThat(tableNames).contains(tablePrefix + "movie1");
+		assertThat(tableNames).contains(tablePrefix + "movie2");
 		ResponseEntity<JsonNode> response = this.restClient.delete()
 			.uri("/v2/service_instances/{instanceId}?service_id={serviceId}&plan_id={planId}", instanceId, serviceId,
 					planId)
@@ -232,10 +251,37 @@ public class DynamodbServiceInstanceControllerTest {
 			.toEntity(JsonNode.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 		List<Tag> tags = this.iamClient.listRoleTags(builder -> builder.roleName(role.roleName())).tags();
-		assertThat(tags).doesNotContain(Tag.builder()
-			.key(AwsService.DYNAMODB.roleTagKey(instanceId))
-			.value("cf-" + StringUtils.removeHyphen(instanceId) + "-")
-			.build());
+		assertThat(tags)
+			.doesNotContain(Tag.builder().key(AwsService.DYNAMODB.roleTagKey(instanceId)).value(tablePrefix).build());
+		tableNames = this.dynamoDbClient.listTables().tableNames();
+		assertThat(tableNames).doesNotContain(tablePrefix + "movie1");
+		assertThat(tableNames).doesNotContain(tablePrefix + "movie2");
+	}
+
+	@DynamoDbBean
+	public static class Movie {
+
+		private UUID movieId;
+
+		private String title;
+
+		public void setMovieId(UUID movieId) {
+			this.movieId = movieId;
+		}
+
+		@DynamoDbPartitionKey
+		public UUID getMovieId() {
+			return movieId;
+		}
+
+		public void setTitle(String title) {
+			this.title = title;
+		}
+
+		public String getTitle() {
+			return title;
+		}
+
 	}
 
 }
