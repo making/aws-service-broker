@@ -9,7 +9,6 @@ import com.example.awsservicebroker.aws.iam.IamService;
 import com.example.awsservicebroker.aws.s3.S3Service;
 import com.example.awsservicebroker.config.TestConfig;
 import com.example.awsservicebroker.servicebroker.AwsService;
-import com.example.awsservicebroker.utils.StringUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,6 +31,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.client.RestClient;
 
+import static com.example.awsservicebroker.servicebroker.service.ServiceBrokerService.TAG_DELIMITER;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
@@ -136,7 +136,7 @@ class S3ServiceInstanceControllerTest {
 		List<Tag> tags = this.iamClient.listRoleTags(builder -> builder.roleName(role.roleName())).tags();
 		assertThat(tags).contains(Tag.builder()
 			.key(AwsService.S3.roleTagKey(instanceId))
-			.value(bucketName + "|" + this.regionProvider.getRegion().id())
+			.value(bucketName + TAG_DELIMITER + this.regionProvider.getRegion().id())
 			.build());
 		assertThat(this.s3Client.getBucketLocation(builder -> builder.bucket(bucketName))).isNotNull();
 	}
@@ -187,7 +187,7 @@ class S3ServiceInstanceControllerTest {
 		List<Tag> tags = this.iamClient.listRoleTags(builder -> builder.roleName(role.roleName())).tags();
 		assertThat(tags).contains(Tag.builder()
 			.key(AwsService.S3.roleTagKey(instanceId))
-			.value(bucketName + "|" + this.regionProvider.getRegion().id())
+			.value(bucketName + TAG_DELIMITER + this.regionProvider.getRegion().id())
 			.build());
 		assertThat(this.s3Client.getBucketLocation(builder -> builder.bucket(bucketName))).isNotNull();
 	}
@@ -239,7 +239,7 @@ class S3ServiceInstanceControllerTest {
 		List<Tag> tags = this.iamClient.listRoleTags(builder -> builder.roleName(role.roleName())).tags();
 		assertThat(tags).contains(Tag.builder()
 			.key(AwsService.S3.roleTagKey(instanceId))
-			.value(bucketName + "|" + this.regionProvider.getRegion().id())
+			.value(bucketName + TAG_DELIMITER + this.regionProvider.getRegion().id())
 			.build());
 		assertThat(this.s3Client.getBucketLocation(builder -> builder.bucket(bucketName))).isNotNull();
 	}
@@ -290,8 +290,10 @@ class S3ServiceInstanceControllerTest {
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
 		assertThat(this.s3Client.getBucketLocation(builder -> builder.bucket(bucketName))).isNotNull();
 		List<Tag> tags = this.iamClient.listRoleTags(builder -> builder.roleName(role.roleName())).tags();
-		assertThat(tags)
-			.contains(Tag.builder().key(AwsService.S3.roleTagKey(instanceId)).value(bucketName + "|" + region).build());
+		assertThat(tags).contains(Tag.builder()
+			.key(AwsService.S3.roleTagKey(instanceId))
+			.value(bucketName + TAG_DELIMITER + region)
+			.build());
 	}
 
 	@Test

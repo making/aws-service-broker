@@ -13,6 +13,8 @@ import software.amazon.awssdk.services.iam.model.Role;
 
 public interface ServiceBrokerService {
 
+	String TAG_DELIMITER = "/";
+
 	default Instance buildInstance(String instanceId, ServiceProvisioningRequest request) {
 		Context context = request.context();
 		String instanceName = context == null ? "unknown-instance" : context.instanceName();
@@ -31,11 +33,11 @@ public interface ServiceBrokerService {
 	}
 
 	static String joinTagValue(String... values) {
-		return String.join("|", values);
+		return String.join(TAG_DELIMITER, values);
 	}
 
 	static String[] splitTagValue(String tagValue) {
-		return tagValue.split("\\|");
+		return tagValue.split(TAG_DELIMITER);
 	}
 
 	default Map<String, Object> provisioning(String instanceId, ServiceProvisioningRequest request) {
